@@ -55,6 +55,11 @@ async function subscribeToPush(userId) {
     // Verificar si ya está suscrito
     let subscription = await registration.pushManager.getSubscription();
     
+    if (!VAPID_PUBLIC_KEY) {
+      toast.error('Error: Las llaves maestras de Vercel/Netlify no se cargaron durante la construcción. ¡Asegúrate de agregar VITE_VAPID_PUBLIC_KEY en la configuración de Entorno y VUELVE A COMPILAR el sitio!', { duration: 8000 });
+      return;
+    }
+
     if (!subscription) {
       // Suscribirse al servicio Push
       const convertedVapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
@@ -64,8 +69,8 @@ async function subscribeToPush(userId) {
       });
     }
 
-    // Enviar la suscripción a nuestro backend (Vercel serverless function)
-    await fetch('/api/subscribe', {
+    // Enviar la suscripción a nuestro backend en Netlify
+    const response = await fetch('/.netlify/functions/subscribe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,7 +81,15 @@ async function subscribeToPush(userId) {
       })
     });
     
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Error desde el servidor de Netlify:', errorData);
+      toast.error('Error al conectar con el servidor de notificaciones.');
+      return;
+    }
+
     console.log('Suscripción Push enviada al servidor');
+    toast.success('¡Dispositivo conectado al servidor de Notificaciones!');
   } catch (error) {
     console.error('Error suscribiendo a Push:', error);
   }
