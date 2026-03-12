@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Nuestros Momentos',
-        short_name: 'Momentos',
+        name: 'GLAPP',
+        short_name: 'GLAPP',
         description: 'Nuestra app privada para seguimiento de ciclo, momentos íntimos y planificación de citas',
         theme_color: '#ff6b9d',
         background_color: '#fff0f5',
@@ -19,6 +19,11 @@ export default defineConfig({
         scope: '/',
         start_url: '/',
         icons: [
+          {
+            src: 'public/fotoIcon.jpeg',
+            sizes: '192x192',
+            type: 'image/jpeg'
+          },
           {
             src: 'icon-192.png',
             sizes: '192x192',
