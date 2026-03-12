@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Plus, Pill, Clock, Bell, BellOff, Trash2, Edit2, Check, X } from 'lucide-react';
 import { 
   getMedications, 
@@ -91,12 +92,9 @@ export default function MedicationTracker({ userId, userName }) {
     }
 
     if (result.success) {
-      // Programar notificaciones si están habilitadas
+      // Intentar suscribir el celular silenciosamente si ya hay permiso (Push)
       if (notificationsEnabled) {
-        const medication = result.data[0];
-        newMed.times.forEach(time => {
-          scheduleNotification(medication.id, newMed.name, time);
-        });
+         checkNotificationPermission(false, userId);
       }
 
       loadMedications();
@@ -106,9 +104,6 @@ export default function MedicationTracker({ userId, userName }) {
 
   const handleDelete = async (id) => {
     if (confirm('¿Segura que quieres eliminar este medicamento?')) {
-      // Cancelar notificaciones programadas
-      await cancelNotification(id);
-      
       const result = await deleteMedication(id);
       if (result.success) {
         loadMedications();
@@ -135,16 +130,12 @@ export default function MedicationTracker({ userId, userName }) {
     const result = await updateMedication(med.id, updated);
     
     if (result.success) {
-      if (updated.isActive && notificationsEnabled) {
-        // Reactivar notificaciones
-        med.times.forEach(time => {
-          scheduleNotification(med.id, med.name, time);
-        });
-      } else {
-        // Cancelar notificaciones
-        await cancelNotification(med.id);
-      }
       loadMedications();
+      
+      // Asegurarse de suscribir a Push (si está inactivo igual suscribimos, el CRON filtra)
+      if (updated.isActive && notificationsEnabled) {
+        checkNotificationPermission(false, userId);
+      }
     }
   };
 
@@ -153,7 +144,7 @@ export default function MedicationTracker({ userId, userName }) {
     if (result.success) {
       loadHistory();
       // Mostrar feedback visual
-      alert(`✅ ${medName} marcada como tomada`);
+      toast.success(`✅ ${medName} marcada como tomada`);
     }
   };
 
@@ -172,18 +163,10 @@ export default function MedicationTracker({ userId, userName }) {
   };
 
   const requestNotificationPermission = async () => {
-    const enabled = await checkNotificationPermission(true);
+    const enabled = await checkNotificationPermission(true, userId);
     setNotificationsEnabled(enabled);
-    
     if (enabled) {
-      // Re-programar todas las notificaciones activas
-      medications.forEach(med => {
-        if (med.is_active) {
-          med.times.forEach(time => {
-            scheduleNotification(med.id, med.name, time);
-          });
-        }
-      });
+      toast.success('Notificaciones en segundo plano activadas');
     }
   };
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { Dices, Heart, Trophy } from 'lucide-react';
 
 export default function Games({ userName }) {
@@ -65,7 +66,7 @@ function CoupleTrivia({ userName }) {
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     } else {
-      alert(`¡Juego terminado! Ahora comparen sus respuestas 💕`);
+      toast.success(`¡Juego terminado! Ahora comparen sus respuestas 💕`);
     }
   };
 

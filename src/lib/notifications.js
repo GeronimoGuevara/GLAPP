@@ -1,26 +1,85 @@
 // Sistema de notificaciones push para recordatorios de medicamentos
+import toast from 'react-hot-toast';
+
+// Clave pública VAPID (deberías obtenerla de tus variables de entorno)
+const { VITE_VAPID_PUBLIC_KEY } = import.meta.env;
+const VAPID_PUBLIC_KEY = VITE_VAPID_PUBLIC_KEY;
+
+// Utilidad para convertir la clave VAPID
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 /**
  * Verifica si las notificaciones están habilitadas y solicita permiso si se requiere
+ * Suscribe al usuario al servicio Web Push si el permiso es concedido
  * @param {boolean} request - Si es true, solicita permiso al usuario
+ * @param {string|number} userId - ID del usuario activo
  * @returns {Promise<boolean>} - true si las notificaciones están habilitadas
  */
-export async function checkNotificationPermission(request = false) {
-  if (!('Notification' in window)) {
-    console.warn('Este navegador no soporta notificaciones');
+export async function checkNotificationPermission(request = false, userId = null) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.warn('Este navegador no soporta Notificaciones Web Push');
     return false;
   }
 
-  if (Notification.permission === 'granted') {
+  let permission = Notification.permission;
+
+  if (request && permission !== 'granted' && permission !== 'denied') {
+    permission = await Notification.requestPermission();
+  }
+
+  if (permission === 'granted' && userId) {
+    await subscribeToPush(userId);
     return true;
   }
 
-  if (request && Notification.permission !== 'denied') {
-    const permission = await Notification.requestPermission();
-    return permission === 'granted';
-  }
+  return permission === 'granted';
+}
 
-  return false;
+async function subscribeToPush(userId) {
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    
+    // Verificar si ya está suscrito
+    let subscription = await registration.pushManager.getSubscription();
+    
+    if (!subscription) {
+      // Suscribirse al servicio Push
+      const convertedVapidKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey
+      });
+    }
+
+    // Enviar la suscripción a nuestro backend (Vercel serverless function)
+    await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscription,
+        userId
+      })
+    });
+    
+    console.log('Suscripción Push enviada al servidor');
+  } catch (error) {
+    console.error('Error suscribiendo a Push:', error);
+  }
 }
 
 /**
@@ -30,9 +89,7 @@ export async function checkNotificationPermission(request = false) {
  * @param {string} time - Hora en formato HH:mm
  */
 export function scheduleNotification(medicationId, medicationName, time) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') {
-    return;
-  }
+  // Sin validación de Notification en ventana porque usamos Toasts in-app
 
   const [hours, minutes] = time.split(':').map(Number);
   const now = new Date();
@@ -73,31 +130,18 @@ export function scheduleNotification(medicationId, medicationName, time) {
  * @param {string} time - Hora programada
  */
 function showNotification(medicationName, time) {
-  if (Notification.permission !== 'granted') return;
-
-  const notification = new Notification('💊 Hora de tu medicamento', {
-    body: `Es hora de tomar: ${medicationName}`,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
-    tag: `med-${medicationName}-${time}`,
-    requireInteraction: true,
-    vibrate: [200, 100, 200],
-    data: {
-      medicationName,
-      time,
-      timestamp: new Date().toISOString()
-    }
+  toast.success(`Es hora de tomar: ${medicationName}`, {
+    icon: '💊',
+    duration: 15000,
+    style: {
+      borderRadius: '10px',
+      background: '#fff',
+      color: '#ff6b9d',
+      border: '1px solid #ffb3c6',
+      fontWeight: 'bold',
+      padding: '16px'
+    },
   });
-
-  notification.onclick = function() {
-    window.focus();
-    this.close();
-    // Navegar a la sección de medicamentos
-    window.location.hash = '#medications';
-  };
-
-  // Auto-cerrar después de 30 segundos si no se interactúa
-  setTimeout(() => notification.close(), 30000);
 }
 
 /**
@@ -181,11 +225,6 @@ function getStoredNotifications() {
  * Envía una notificación de prueba
  */
 export function sendTestNotification() {
-  if (Notification.permission !== 'granted') {
-    alert('Las notificaciones no están habilitadas');
-    return;
-  }
-
   showNotification('Medicamento de Prueba', 'Ahora');
 }
 
@@ -206,8 +245,6 @@ export function getScheduledNotificationsInfo() {
 // Re-programar notificaciones al cargar la página
 if (typeof window !== 'undefined') {
   window.addEventListener('load', () => {
-    if (Notification.permission === 'granted') {
-      restoreNotifications();
-    }
+    restoreNotifications();
   });
 }

@@ -8,6 +8,7 @@ import MealIdeas from './components/MealIdeas';
 import Games from './components/Games';
 import MedicationTracker from './components/MedicationTracker';
 import './styles/App.css';
+import { Toaster } from 'react-hot-toast';
 import { initializeTables, getCycles, getIntimateMoments } from './lib/database';
 
 
@@ -74,6 +75,7 @@ function App() {
 
   return (
     <div className="app">
+      <Toaster position="top-center" reverseOrder={false} />
       <header className="app-header">
         <div className="header-content">
           <Heart className="header-icon" />
