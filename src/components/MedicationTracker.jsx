@@ -92,7 +92,20 @@ export default function MedicationTracker({ userId, userName }) {
     }
 
     if (result.success) {
-      // Intentar suscribir el celular silenciosamente si ya hay permiso (Push)
+      // Siempre programamos los toasts locales para cuando la app está abierta
+      const medication = result.data ? result.data[0] : medData;
+      const medId = editingId || (medication && medication.id);
+      
+      if (medId) {
+        // Limpiamos anteriores si es una edición
+        if (editingId) cancelNotification(medId);
+        
+        newMed.times.forEach(time => {
+          scheduleNotification(medId, newMed.name, time);
+        });
+      }
+
+      // Intentar suscribir el celular silenciosamente si ya hay permiso (Push en Background)
       if (notificationsEnabled) {
          checkNotificationPermission(false, userId);
       }
@@ -104,6 +117,7 @@ export default function MedicationTracker({ userId, userName }) {
 
   const handleDelete = async (id) => {
     if (confirm('¿Segura que quieres eliminar este medicamento?')) {
+      await cancelNotification(id);
       const result = await deleteMedication(id);
       if (result.success) {
         loadMedications();
@@ -132,9 +146,18 @@ export default function MedicationTracker({ userId, userName }) {
     if (result.success) {
       loadMedications();
       
-      // Asegurarse de suscribir a Push (si está inactivo igual suscribimos, el CRON filtra)
-      if (updated.isActive && notificationsEnabled) {
-        checkNotificationPermission(false, userId);
+      if (updated.isActive) {
+        // Reactivar Toasts Locales
+        med.times.forEach(time => {
+          scheduleNotification(med.id, med.name, time);
+        });
+        // Intentar Push Background
+        if (notificationsEnabled) {
+          checkNotificationPermission(false, userId);
+        }
+      } else {
+        // Cancelar Toasts Locales
+        cancelNotification(med.id);
       }
     }
   };
@@ -163,10 +186,18 @@ export default function MedicationTracker({ userId, userName }) {
   };
 
   const requestNotificationPermission = async () => {
+    // Check if it's iOS without PushManager (e.g. running in normal Safari tab instead of PWA)
+    if (!('PushManager' in window)) {
+      toast.error('Para recibir notificaciones en segundo plano en iPhone, primero debes presionar "Compartir" y luego "Agregar a Inicio". Luego abre la app desde tu pantalla de inicio.', { duration: 8000 });
+      return;
+    }
+
     const enabled = await checkNotificationPermission(true, userId);
     setNotificationsEnabled(enabled);
     if (enabled) {
       toast.success('Notificaciones en segundo plano activadas');
+    } else {
+      toast.error('Permiso de notificaciones denegado.');
     }
   };
 
