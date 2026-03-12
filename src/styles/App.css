@@ -111,7 +111,7 @@ h1, h2, h3, h4 {
   border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-around;
-  padding: 0.5rem;
+  padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom, 20px));
   box-shadow: 0 -4px 20px var(--shadow);
   z-index: 100;
 }

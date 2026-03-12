@@ -20,7 +20,7 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'public/fotoIcon.jpeg',
+            src: 'public/fotoIcono.jpeg',
             sizes: '192x192',
             type: 'image/jpeg'
           },
