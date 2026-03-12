@@ -1,34 +1,43 @@
 import { neon } from '@neondatabase/serverless';
 
-export default async function handler(req, res) {
+export const handler = async (event, context) => {
   // Configurar CORS
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  };
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (event.httpMethod !== 'POST') {
+    return { 
+      statusCode: 405, 
+      headers,
+      body: JSON.stringify({ error: 'Method not allowed' }) 
+    };
   }
 
   try {
-    const { subscription, userId } = req.body;
+    const { subscription, userId } = JSON.parse(event.body);
 
     if (!subscription || !subscription.endpoint || !subscription.keys || !userId) {
-      return res.status(400).json({ error: 'Missing required parameters' });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Missing required parameters' })
+      };
     }
 
     const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
     if (!DATABASE_URL) {
-      return res.status(500).json({ error: 'Database URL not configured' });
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'Database URL not configured' })
+      };
     }
 
     const sql = neon(DATABASE_URL);
@@ -59,9 +68,17 @@ export default async function handler(req, res) {
       `;
     }
 
-    res.status(201).json({ success: true, message: 'Subscribed successfully' });
+    return {
+      statusCode: 201,
+      headers,
+      body: JSON.stringify({ success: true, message: 'Subscribed successfully' })
+    };
   } catch (error) {
     console.error('Subscription error:', error);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'Internal server error', details: error.message })
+    };
   }
-}
+};
