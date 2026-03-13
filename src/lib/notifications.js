@@ -96,152 +96,6 @@ async function subscribeToPush(userId) {
 }
 
 /**
- * Programa una notificación para un medicamento a una hora específica
- * @param {string|number} medicationId - ID del medicamento
- * @param {string} medicationName - Nombre del medicamento
- * @param {string} time - Hora en formato HH:mm
- */
-export function scheduleNotification(medicationId, medicationName, time) {
-  // Sin validación de Notification en ventana porque usamos Toasts in-app
-
-  const [hours, minutes] = time.split(':').map(Number);
-  const now = new Date();
-  const scheduledTime = new Date();
-  scheduledTime.setHours(hours, minutes, 0, 0);
-
-  // Si la hora ya pasó hoy, programar para mañana
-  if (scheduledTime <= now) {
-    scheduledTime.setDate(scheduledTime.getDate() + 1);
-  }
-
-  const delay = scheduledTime.getTime() - now.getTime();
-
-  // Guardar el timeout ID para poder cancelarlo después
-  const timeoutId = setTimeout(() => {
-    showNotification(medicationName, time);
-    // Re-programar para el día siguiente
-    scheduleNotification(medicationId, medicationName, time);
-  }, delay);
-
-  // Guardar en localStorage para persistencia
-  const notifications = getStoredNotifications();
-  notifications[`${medicationId}-${time}`] = {
-    medicationId,
-    medicationName,
-    time,
-    timeoutId,
-    nextScheduled: scheduledTime.toISOString()
-  };
-  localStorage.setItem('scheduledNotifications', JSON.stringify(notifications));
-
-  return timeoutId;
-}
-
-/**
- * Muestra una notificación inmediata
- * @param {string} medicationName - Nombre del medicamento
- * @param {string} time - Hora programada
- */
-function showNotification(medicationName, time) {
-  toast.success(`Es hora de tomar: ${medicationName}`, {
-    icon: '💊',
-    duration: 15000,
-    style: {
-      borderRadius: '10px',
-      background: '#fff',
-      color: '#ff6b9d',
-      border: '1px solid #ffb3c6',
-      fontWeight: 'bold',
-      padding: '16px'
-    },
-  });
-}
-
-/**
- * Cancela todas las notificaciones programadas para un medicamento
- * @param {string|number} medicationId - ID del medicamento
- */
-export async function cancelNotification(medicationId) {
-  const notifications = getStoredNotifications();
-  
-  Object.keys(notifications).forEach(key => {
-    if (key.startsWith(`${medicationId}-`)) {
-      const notif = notifications[key];
-      if (notif.timeoutId) {
-        clearTimeout(notif.timeoutId);
-      }
-      delete notifications[key];
-    }
-  });
-
-  localStorage.setItem('scheduledNotifications', JSON.stringify(notifications));
-}
-
-/**
- * Cancela todas las notificaciones programadas
- */
-export function cancelAllNotifications() {
-  const notifications = getStoredNotifications();
-  
-  Object.values(notifications).forEach(notif => {
-    if (notif.timeoutId) {
-      clearTimeout(notif.timeoutId);
-    }
-  });
-
-  localStorage.removeItem('scheduledNotifications');
-}
-
-/**
- * Re-programa todas las notificaciones guardadas (útil al recargar la página)
- */
-export function restoreNotifications() {
-  const notifications = getStoredNotifications();
-  const now = new Date();
-
-  Object.entries(notifications).forEach(([key, notif]) => {
-    const nextScheduled = new Date(notif.nextScheduled);
-    
-    // Si la notificación ya pasó, re-programar para hoy/mañana
-    if (nextScheduled <= now) {
-      scheduleNotification(notif.medicationId, notif.medicationName, notif.time);
-    } else {
-      // Mantener la programación existente
-      const delay = nextScheduled.getTime() - now.getTime();
-      const timeoutId = setTimeout(() => {
-        showNotification(notif.medicationName, notif.time);
-        scheduleNotification(notif.medicationId, notif.medicationName, notif.time);
-      }, delay);
-
-      notifications[key].timeoutId = timeoutId;
-    }
-  });
-
-  localStorage.setItem('scheduledNotifications', JSON.stringify(notifications));
-}
-
-/**
- * Obtiene las notificaciones almacenadas
- * @returns {Object} - Objeto con las notificaciones programadas
- */
-function getStoredNotifications() {
-  try {
-    const stored = localStorage.getItem('scheduledNotifications');
-    return stored ? JSON.parse(stored) : {};
-  } catch (error) {
-    console.error('Error leyendo notificaciones:', error);
-    return {};
-  }
-}
-
-/**
- * Envía una notificación de prueba
- */
-export function sendTestNotification() {
-  showNotification('Medicamento de Prueba', 'Ahora');
-}
-
-/**
  * Pide al servidor de Netlify que envíe una notificación Push REAL e inmediata a este dispositivo. 
  * Sirve para probar si el backend y las llaves VAPID están bien configuradas.
  */
@@ -257,7 +111,7 @@ export async function testRealPushNotification(userId) {
     const data = await response.json();
     
     if (response.ok && data.success) {
-      toast.success(`¡Push enviado! Revisa si llegó la notificación del celular (Enviados: ${data.sent})`, { id: toastId, duration: 8000 });
+      toast.success(`¡Push enviado! Revisa si llegó la notificación (Enviados: ${data.sent})`, { id: toastId, duration: 8000 });
     } else {
       console.error('Test Push Error:', data);
       toast.error(`Error del servidor: ${data.error || 'Desconocido'}`, { id: toastId, duration: 8000 });
@@ -266,25 +120,4 @@ export async function testRealPushNotification(userId) {
     console.error('Network Error:', error);
     toast.error('Error de red al intentar probar Push', { duration: 8000 });
   }
-}
-
-/**
- * Obtiene el estado de las notificaciones programadas
- * @returns {Array} - Array con información de notificaciones activas
- */
-export function getScheduledNotificationsInfo() {
-  const notifications = getStoredNotifications();
-  return Object.entries(notifications).map(([key, notif]) => ({
-    key,
-    medicationName: notif.medicationName,
-    time: notif.time,
-    nextScheduled: new Date(notif.nextScheduled)
-  }));
-}
-
-// Re-programar notificaciones al cargar la página
-if (typeof window !== 'undefined') {
-  window.addEventListener('load', () => {
-    restoreNotifications();
-  });
 }

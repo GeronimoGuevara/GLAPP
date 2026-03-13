@@ -24,14 +24,15 @@ const myHandler = async (event, context) => {
 
     const sql = neon(DATABASE_URL);
 
-    // Obtener la hora actual en formato 'HH:mm' en Zona Horaria de Argentina (UTC-3)
+    // Obtener la hora actual en formato 'HH:mm' en Zona Horaria de Argentina
     const now = new Date();
-    now.setHours(now.getHours() - 3);
+    // Convertir estrictamente usando la zona horaria sin importar el reloj interno del servidor
+    const argentinaTimeStr = now.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' });
+    const argentinaTime = new Date(argentinaTimeStr);
     
-    // Netlify Functions de Cron se ejecutan bastante exactas pero damos algo de margen interno
-    const currentHourMin = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const currentHourMin = `${argentinaTime.getHours().toString().padStart(2, '0')}:${argentinaTime.getMinutes().toString().padStart(2, '0')}`;
     
-    console.log(`Checking meds around: ${currentHourMin}`);
+    console.log(`Server Time UTC: ${now.toISOString()} | Checking meds for AR Time: ${currentHourMin}`);
 
     // Buscar medicamentos activos
     const medications = await sql`

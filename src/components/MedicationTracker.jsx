@@ -11,7 +11,7 @@ import {
 } from '../lib/database';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { scheduleNotification, cancelNotification, checkNotificationPermission, testRealPushNotification } from '../lib/notifications';
+import { checkNotificationPermission, testRealPushNotification } from '../lib/notifications';
 
 export default function MedicationTracker({ userId, userName }) {
   const [medications, setMedications] = useState([]);
@@ -92,19 +92,6 @@ export default function MedicationTracker({ userId, userName }) {
     }
 
     if (result.success) {
-      // Siempre programamos los toasts locales para cuando la app está abierta
-      const medication = result.data ? result.data[0] : medData;
-      const medId = editingId || (medication && medication.id);
-      
-      if (medId) {
-        // Limpiamos anteriores si es una edición
-        if (editingId) cancelNotification(medId);
-        
-        newMed.times.forEach(time => {
-          scheduleNotification(medId, newMed.name, time);
-        });
-      }
-
       // Intentar suscribir el celular silenciosamente si ya hay permiso (Push en Background)
       if (notificationsEnabled) {
          checkNotificationPermission(false, userId);
@@ -117,7 +104,6 @@ export default function MedicationTracker({ userId, userName }) {
 
   const handleDelete = async (id) => {
     if (confirm('¿Segura que quieres eliminar este medicamento?')) {
-      await cancelNotification(id);
       const result = await deleteMedication(id);
       if (result.success) {
         loadMedications();
@@ -147,17 +133,10 @@ export default function MedicationTracker({ userId, userName }) {
       loadMedications();
       
       if (updated.isActive) {
-        // Reactivar Toasts Locales
-        med.times.forEach(time => {
-          scheduleNotification(med.id, med.name, time);
-        });
         // Intentar Push Background
         if (notificationsEnabled) {
           checkNotificationPermission(false, userId);
         }
-      } else {
-        // Cancelar Toasts Locales
-        cancelNotification(med.id);
       }
     }
   };
