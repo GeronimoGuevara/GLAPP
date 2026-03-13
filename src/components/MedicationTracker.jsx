@@ -11,7 +11,7 @@ import {
 } from '../lib/database';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { scheduleNotification, cancelNotification, checkNotificationPermission } from '../lib/notifications';
+import { scheduleNotification, cancelNotification, checkNotificationPermission, testRealPushNotification } from '../lib/notifications';
 
 export default function MedicationTracker({ userId, userName }) {
   const [medications, setMedications] = useState([]);
@@ -253,7 +253,7 @@ export default function MedicationTracker({ userId, userName }) {
       </div>
 
       {/* Notificaciones Toggle */}
-      {!notificationsEnabled && (
+      {!notificationsEnabled ? (
         <div className="notification-banner">
           <div className="notification-content">
             <div className="notification-icon">
@@ -266,6 +266,21 @@ export default function MedicationTracker({ userId, userName }) {
           </div>
           <button className="btn-primary btn-sm" onClick={requestNotificationPermission}>
             Activar
+          </button>
+        </div>
+      ) : (
+        <div className="notification-banner" style={{ backgroundColor: '#fdf0f5', borderColor: '#ffb3c6' }}>
+          <div className="notification-content">
+            <div className="notification-icon" style={{ color: '#ff6b9d' }}>
+              <Bell size={24} />
+            </div>
+            <div className="notification-text">
+              <strong>Conectado a Netlify Push</strong>
+              <p>Mantenemos tu dispositivo conectado en segundo plano.</p>
+            </div>
+          </div>
+          <button className="btn-secondary btn-sm" onClick={() => testRealPushNotification(userId)}>
+            Probar Push
           </button>
         </div>
       )}

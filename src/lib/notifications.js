@@ -242,6 +242,33 @@ export function sendTestNotification() {
 }
 
 /**
+ * Pide al servidor de Netlify que envíe una notificación Push REAL e inmediata a este dispositivo. 
+ * Sirve para probar si el backend y las llaves VAPID están bien configuradas.
+ */
+export async function testRealPushNotification(userId) {
+  try {
+    const toastId = toast.loading('Enviando petición de prueba al servidor...');
+    const response = await fetch('/.netlify/functions/test-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+
+    const data = await response.json();
+    
+    if (response.ok && data.success) {
+      toast.success(`¡Push enviado! Revisa si llegó la notificación del celular (Enviados: ${data.sent})`, { id: toastId, duration: 8000 });
+    } else {
+      console.error('Test Push Error:', data);
+      toast.error(`Error del servidor: ${data.error || 'Desconocido'}`, { id: toastId, duration: 8000 });
+    }
+  } catch (error) {
+    console.error('Network Error:', error);
+    toast.error('Error de red al intentar probar Push', { duration: 8000 });
+  }
+}
+
+/**
  * Obtiene el estado de las notificaciones programadas
  * @returns {Array} - Array con información de notificaciones activas
  */
