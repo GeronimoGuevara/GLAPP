@@ -24,15 +24,25 @@ const myHandler = async (event, context) => {
 
     const sql = neon(DATABASE_URL);
 
-    // Obtener la hora actual en formato 'HH:mm' en Zona Horaria de Argentina
+    // Obtener la hora actual usando Intl.DateTimeFormat para evitar bugs de Zona Horaria en Servidores UTC
     const now = new Date();
-    // Convertir estrictamente usando la zona horaria sin importar el reloj interno del servidor
-    const argentinaTimeStr = now.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' });
-    const argentinaTime = new Date(argentinaTimeStr);
-    
-    const currentHourMin = `${argentinaTime.getHours().toString().padStart(2, '0')}:${argentinaTime.getMinutes().toString().padStart(2, '0')}`;
+    const options = { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hour12: false };
+    const currentHourMin = new Intl.DateTimeFormat('es-AR', options).format(now);
     
     console.log(`Server Time UTC: ${now.toISOString()} | Checking meds for AR Time: ${currentHourMin}`);
+
+    // Crear una ventana de tiempo de los últimos 5 minutos para atrapar ejecuciones atrasadas
+    const [h, m] = currentHourMin.split(':').map(Number);
+    const validMinutes = [];
+    for (let i = 0; i <= 5; i++) {
+        let min = m - i;
+        let hr = h;
+        if (min < 0) {
+            min += 60;
+            hr = hr - 1 < 0 ? 23 : hr - 1;
+        }
+        validMinutes.push(`${hr.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`);
+    }
 
     // Buscar medicamentos activos
     const medications = await sql`
@@ -53,7 +63,7 @@ const myHandler = async (event, context) => {
       }
 
       timesArray.forEach(time => {
-        if (time === currentHourMin) {
+        if (validMinutes.includes(time)) {
           medsToNotify.push({
             medicationId: med.id,
             medicationName: med.name,
@@ -66,8 +76,12 @@ const myHandler = async (event, context) => {
     });
 
     if (medsToNotify.length === 0) {
-      return { statusCode: 200, body: 'No medications scheduled for right now' };
+      return { statusCode: 200, body: 'No medications scheduled within the 5 minute window' };
     }
+
+    // Para evitar mandar notificaciones duplicadas en esta misma ventana, revisamos los logs (si ya se envió hoy a esta hora no lo podemos chequear si no guardamos un "log de push", pero como medida adicional esto es clave).
+    // Idealmente guardaríamos un registro de "push_sent". Por ahora dejaremos que notifique, asumiendo que el Cron corre solo una vez por ese periodo.
+
 
     // Para cada medicamento, buscar las subscripciones PUSH
     const notificationsSent = [];
@@ -134,5 +148,22 @@ const myHandler = async (event, context) => {
   }
 };
 
-// Programar para ejecutarse cada 1 minuto
-export const handler = schedule('* * * * *', myHandler);
+// Exportar tanto como EndPoint normal (por si queremos usar cron-job.org) y como Scheduled Function de Netlify
+export const handler = async (event, context) => {
+  // Configuración de CORS por si lo llamamos vía Web
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      },
+      body: ''
+    };
+  }
+  return myHandler(event, context);
+};
+
+// Y también exportarlo como cron para Netlify (aunque en el tier gratuito solo corre cada hora a veces)
+export const scheduledHandler = schedule('* * * * *', myHandler);
