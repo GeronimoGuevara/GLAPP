@@ -148,22 +148,5 @@ const myHandler = async (event, context) => {
   }
 };
 
-// Exportar tanto como EndPoint normal (por si queremos usar cron-job.org) y como Scheduled Function de Netlify
-export const handler = async (event, context) => {
-  // Configuración de CORS por si lo llamamos vía Web
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      },
-      body: ''
-    };
-  }
-  return myHandler(event, context);
-};
-
-// Y también exportarlo como cron para Netlify (aunque en el tier gratuito solo corre cada hora a veces)
-export const scheduledHandler = schedule('* * * * *', myHandler);
+// Exportar estrictamente como Cron Job de Netlify para evitar errores de Build
+export const handler = schedule('* * * * *', myHandler);
