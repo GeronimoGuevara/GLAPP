@@ -42,6 +42,22 @@ export const handler = async (event, context) => {
 
     const sql = neon(DATABASE_URL);
 
+    // Verificar si la tabla push_subscriptions existe, si no crearla
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          endpoint TEXT NOT NULL UNIQUE,
+          p256dh TEXT NOT NULL,
+          auth TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `;
+    } catch (tableError) {
+      console.log('Table check/creation:', tableError.message);
+    }
+
     // Verificar si ya existe esa suscripción
     const existing = await sql`
       SELECT id FROM push_subscriptions 

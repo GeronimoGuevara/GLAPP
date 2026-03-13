@@ -13,6 +13,9 @@ const myHandler = async (event, context) => {
 
     if (!pubKey || !privKey) {
       console.error('VAPID keys not configured in environment');
+      console.error('VITE_VAPID_PUBLIC_KEY:', process.env.VITE_VAPID_PUBLIC_KEY ? 'set' : 'NOT SET');
+      console.error('VAPID_PUBLIC_KEY:', process.env.VAPID_PUBLIC_KEY ? 'set' : 'NOT SET');
+      console.error('VAPID_PRIVATE_KEY:', process.env.VAPID_PRIVATE_KEY ? 'set' : 'NOT SET');
       return { statusCode: 500, body: 'Missing VAPID keys' };
     }
 
@@ -81,20 +84,46 @@ const myHandler = async (event, context) => {
       return { statusCode: 200, body: 'No medications scheduled within the 5 minute window' };
     }
 
-    // Para evitar mandar notificaciones duplicadas en esta misma ventana, revisamos los logs (si ya se envió hoy a esta hora no lo podemos chequear si no guardamos un "log de push", pero como medida adicional esto es clave).
-    // Idealmente guardaríamos un registro de "push_sent". Por ahora dejaremos que notifique, asumiendo que el Cron corre solo una vez por ese periodo.
-
+    console.log(`Found ${medsToNotify.length} medications to notify:`, medsToNotify);
 
     // Para cada medicamento, buscar las subscripciones PUSH
     const notificationsSent = [];
     const subscriptionsToRemove = [];
 
     for (const med of medsToNotify) {
-      const subs = await sql`
-        SELECT endpoint, p256dh, auth
-        FROM push_subscriptions
-        WHERE user_id = ${med.userId}
-      `;
+      // Primero verificar si la tabla push_subscriptions existe
+      let subs = [];
+      try {
+        subs = await sql`
+          SELECT endpoint, p256dh, auth
+          FROM push_subscriptions
+          WHERE user_id = ${med.userId}
+        `;
+      } catch (tableError) {
+        console.error('Error accessing push_subscriptions table:', tableError);
+        // La tabla no existe, intentar crearla
+        try {
+          await sql`
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+              endpoint TEXT NOT NULL UNIQUE,
+              p256dh TEXT NOT NULL,
+              auth TEXT NOT NULL,
+              created_at TIMESTAMP DEFAULT NOW()
+            )
+          `;
+          console.log('Created push_subscriptions table');
+        } catch (createError) {
+          console.error('Error creating push_subscriptions table:', createError);
+        }
+        continue;
+      }
+
+      if (subs.length === 0) {
+        console.log(`No push subscriptions found for user ${med.userId}`);
+        continue;
+      }
 
       const notificationPayload = JSON.stringify({
         title: '💊 Hora de tu pastilla',
@@ -128,10 +157,14 @@ const myHandler = async (event, context) => {
 
     // Cleanup de subscripciones muertas
     if (subscriptionsToRemove.length > 0) {
-      await sql`
-        DELETE FROM push_subscriptions
-        WHERE endpoint = ANY(${subscriptionsToRemove})
-      `;
+      try {
+        await sql`
+          DELETE FROM push_subscriptions
+          WHERE endpoint = ANY(${subscriptionsToRemove})
+        `;
+      } catch (deleteError) {
+        console.error('Error deleting dead subscriptions:', deleteError);
+      }
     }
 
     return { 

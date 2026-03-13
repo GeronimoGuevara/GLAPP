@@ -23,9 +23,5 @@
   status = 200
 
 # Configuración del Cron Job - se ejecuta cada minuto para verificar medicamentos
-[[functions]]
-  name = "cron-check-meds"
-
-[functions.cron]
-  path = "/.netlify/functions/cron-check-meds"
+[functions.cron-check-meds]
   schedule = "* * * * *"
