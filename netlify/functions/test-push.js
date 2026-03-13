@@ -26,8 +26,9 @@ export const handler = async (event, context) => {
 
     // En Netlify, las variables VITE_ del frontend no están disponibles en funciones serverless
     // Por eso necesitamos verificar ambos nombres de variable
+    // IMPORTANTE: Si cambias la clave, los usuarios deben volver a suscribirse a push
     const pubKey = process.env.VITE_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY;
-    const privKey = process.env.VAPID_PRIVATE_KEY;
+    const privKey = process.env.VAPID_PRIVATE_KEY || process.env.VITE_VAPID_PRIVATE_KEY;
     const mailTo = process.env.VAPID_MAILTO || 'mailto:admin@tu-app.com';
 
     if (!pubKey || !privKey) {
