@@ -3,6 +3,10 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# Cron Job para verificar medicamentos cada minuto
+[build.environment]
+  NODE_VERSION = "18"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
@@ -17,3 +21,11 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Configuración del Cron Job - se ejecuta cada minuto para verificar medicamentos
+[[functions]]
+  name = "cron-check-meds"
+
+[functions.cron]
+  path = "/.netlify/functions/cron-check-meds"
+  schedule = "* * * * *"

@@ -110,6 +110,19 @@ CREATE TABLE IF NOT EXISTS medications (
 -- Índice para búsquedas de medicamentos por usuario
 CREATE INDEX IF NOT EXISTS idx_medications_user ON medications(user_id, is_active);
 
+-- Tabla de suscripciones Push (para notificaciones)
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Índice para búsquedas de suscripciones por usuario
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+
 -- Tabla de historial de medicamentos tomados
 CREATE TABLE IF NOT EXISTS medication_logs (
   id SERIAL PRIMARY KEY,

@@ -24,7 +24,9 @@ export const handler = async (event, context) => {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing userId' }) };
     }
 
-    const pubKey = process.env.VITE_VAPID_PUBLIC_KEY;
+    // En Netlify, las variables VITE_ del frontend no están disponibles en funciones serverless
+    // Por eso necesitamos verificar ambos nombres de variable
+    const pubKey = process.env.VITE_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY;
     const privKey = process.env.VAPID_PRIVATE_KEY;
     const mailTo = process.env.VAPID_MAILTO || 'mailto:admin@tu-app.com';
 
