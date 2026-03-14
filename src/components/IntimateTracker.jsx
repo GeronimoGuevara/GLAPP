@@ -1,16 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Flame, Plus, Calendar as CalendarIcon } from 'lucide-react';
-import { addIntimateмомент, getIntimateMoments } from '../lib/database';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { Flame, Plus, Calendar as CalendarIcon, Edit2, Trash2, X } from 'lucide-react';
+import { addIntimateMoment, getIntimateMoments, updateIntimateMoment, deleteIntimateMoment } from '../lib/database';
+import { format, parseISO, differenceInDays, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
+import toast from 'react-hot-toast';
 
 export default function IntimateTracker() {
   const [moments, setMoments] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingMoment, setEditingMoment] = useState(null);
   const [newMoment, setNewMoment] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
     time: format(new Date(), 'HH:mm'),
-    notes: ''
+    notes: '',
+    protection: 'none'
+  });
+  const [editMoment, setEditMoment] = useState({
+    date: '',
+    time: '',
+    notes: '',
+    protection: 'none'
   });
 
   useEffect(() => {
@@ -27,16 +36,72 @@ export default function IntimateTracker() {
   const handleAddMoment = async (e) => {
     e.preventDefault();
     const datetime = `${newMoment.date}T${newMoment.time}:00`;
-    const result = await addIntimateмомент(datetime, newMoment.notes);
+    const protection = newMoment.protection === 'none' ? null : newMoment.protection;
+    const result = await addIntimateMoment(datetime, newMoment.notes, protection);
     
     if (result.success) {
       loadMoments();
       setNewMoment({
         date: format(new Date(), 'yyyy-MM-dd'),
         time: format(new Date(), 'HH:mm'),
-        notes: ''
+        notes: '',
+        protection: 'none'
       });
       setShowAddForm(false);
+      toast.success('Momento registrado ❤️');
+    }
+  };
+
+  const handleEditMoment = async (e) => {
+    e.preventDefault();
+    if (!editingMoment) return;
+    
+    const datetime = `${editMoment.date}T${editMoment.time}:00`;
+    const protection = editMoment.protection === 'none' ? null : editMoment.protection;
+    const result = await updateIntimateMoment(editingMoment.id, datetime, editMoment.notes, protection);
+    
+    if (result.success) {
+      loadMoments();
+      setEditingMoment(null);
+      setEditMoment({ date: '', time: '', notes: '', protection: 'none' });
+      toast.success('Momento actualizado ❤️');
+    }
+  };
+
+  const handleDeleteMoment = async (momentId) => {
+    if (!confirm('¿Estás segura de que quieres eliminar este momento?')) return;
+    
+    const result = await deleteIntimateMoment(momentId);
+    if (result.success) {
+      loadMoments();
+      toast.success('Momento eliminado');
+    }
+  };
+
+  const startEditing = (moment) => {
+    const date = safeParseDate(moment.moment_date);
+    if (!date) return;
+    setEditingMoment(moment);
+    setEditMoment({
+      date: format(date, 'yyyy-MM-dd'),
+      time: format(date, 'HH:mm'),
+      notes: moment.notes || '',
+      protection: moment.protection || 'none'
+    });
+  };
+
+  // Función auxiliar para parsear fechas (maneja strings y Date objects)
+  const safeParseDate = (dateValue) => {
+    if (!dateValue) return null;
+    try {
+      if (typeof dateValue === 'string') {
+        const parsed = parseISO(dateValue);
+        if (isValid(parsed)) return parsed;
+      }
+      if (dateValue instanceof Date && isValid(dateValue)) return dateValue;
+      return null;
+    } catch (e) {
+      return null;
     }
   };
 
@@ -45,12 +110,14 @@ export default function IntimateTracker() {
     if (moments.length === 0) return null;
 
     const now = new Date();
-    const lastMoment = parseISO(moments[0].moment_date);
+    const lastMoment = safeParseDate(moments[0].moment_date);
+    if (!lastMoment) return null;
     const daysSinceLast = differenceInDays(now, lastMoment);
 
     // Momentos este mes
     const thisMonth = moments.filter(m => {
-      const date = parseISO(m.moment_date);
+      const date = safeParseDate(m.moment_date);
+      if (!date) return false;
       return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     }).length;
 
@@ -58,7 +125,8 @@ export default function IntimateTracker() {
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
     const recentMoments = moments.filter(m => {
-      const date = parseISO(m.moment_date);
+      const date = safeParseDate(m.moment_date);
+      if (!date) return false;
       return date >= threeMonthsAgo;
     });
     const avgPerMonth = Math.round(recentMoments.length / 3);
@@ -78,7 +146,8 @@ export default function IntimateTracker() {
     const grouped = {};
     
     moments.forEach(moment => {
-      const date = parseISO(moment.moment_date);
+      const date = safeParseDate(moment.moment_date);
+      if (!date) return;
       const monthKey = format(date, 'MMMM yyyy', { locale: es });
       
       if (!grouped[monthKey]) {
@@ -164,6 +233,18 @@ export default function IntimateTracker() {
             </div>
 
             <div className="form-group">
+              <label>Protección</label>
+              <select
+                value={newMoment.protection}
+                onChange={(e) => setNewMoment({...newMoment, protection: e.target.value})}
+              >
+                <option value="none">Seleccionar...</option>
+                <option value="with">💚 Con protección</option>
+                <option value="without">❤️ Sin protección</option>
+              </select>
+            </div>
+
+            <div className="form-group">
               <label>Notas privadas (opcional)</label>
               <textarea
                 value={newMoment.notes}
@@ -175,6 +256,66 @@ export default function IntimateTracker() {
 
             <div className="form-actions">
               <button type="button" onClick={() => setShowAddForm(false)} className="btn-secondary">
+                Cancelar
+              </button>
+              <button type="submit" className="btn-primary">
+                Guardar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Formulario para editar momento */}
+      {editingMoment && (
+        <div className="add-form-card">
+          <h3>Editar Momento</h3>
+          <form onSubmit={handleEditMoment}>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Fecha</label>
+                <input
+                  type="date"
+                  value={editMoment.date}
+                  onChange={(e) => setEditMoment({...editMoment, date: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Hora (opcional)</label>
+                <input
+                  type="time"
+                  value={editMoment.time}
+                  onChange={(e) => setEditMoment({...editMoment, time: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Protección</label>
+              <select
+                value={editMoment.protection}
+                onChange={(e) => setEditMoment({...editMoment, protection: e.target.value})}
+              >
+                <option value="none">Seleccionar...</option>
+                <option value="with">💚 Con protección</option>
+                <option value="without">❤️ Sin protección</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Notas privadas (opcional)</label>
+              <textarea
+                value={editMoment.notes}
+                onChange={(e) => setEditMoment({...editMoment, notes: e.target.value})}
+                placeholder="Detalles que quieran recordar..."
+                rows={3}
+              />
+            </div>
+
+            <div className="form-actions">
+              <button type="button" onClick={() => { setEditingMoment(null); setEditMoment({ date: '', time: '', notes: '', protection: 'none' }); }} className="btn-secondary">
                 Cancelar
               </button>
               <button type="submit" className="btn-primary">
@@ -200,7 +341,8 @@ export default function IntimateTracker() {
               <h4 className="month-header">{month}</h4>
               <div className="moments-list">
                 {monthMoments.map(moment => {
-                  const datetime = parseISO(moment.moment_date);
+                  const datetime = safeParseDate(moment.moment_date);
+                  if (!datetime) return null;
                   
                   return (
                     <div key={moment.id} className="moment-item">
@@ -214,9 +356,32 @@ export default function IntimateTracker() {
                         <span className="moment-time">
                           {format(datetime, 'HH:mm', { locale: es })}
                         </span>
+                        {moment.protection && moment.protection !== 'none' && (
+                          <span className="moment-protection">
+                            {moment.protection === 'with' ? '💚 Con protección' : '❤️ Sin protección'}
+                          </span>
+                        )}
                         {moment.notes && (
                           <p className="moment-notes">{moment.notes}</p>
                         )}
+                      </div>
+                      <div className="moment-actions">
+                        <button 
+                          type="button" 
+                          className="icon-btn"
+                          onClick={() => startEditing(moment)}
+                          title="Editar"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          type="button" 
+                          className="icon-btn danger"
+                          onClick={() => handleDeleteMoment(moment.id)}
+                          title="Eliminar"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
                   );

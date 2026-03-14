@@ -120,6 +120,30 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Tabla de configuración del ciclo menstrual
+CREATE TABLE IF NOT EXISTS cycle_settings (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  period_duration INTEGER DEFAULT 5,
+  cycle_duration INTEGER DEFAULT 28,
+  last_period_start DATE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Tabla de notas del ciclo (síntomas, actividad sexual, etc.)
+CREATE TABLE IF NOT EXISTS cycle_notes (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  note_date DATE NOT NULL,
+  note_type VARCHAR(50) NOT NULL, -- 'period', 'intimate', 'symptom', 'note'
+  note TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Índice para búsquedas de notas por fecha
+CREATE INDEX IF NOT EXISTS idx_cycle_notes_date ON cycle_notes(user_id, note_date);
+
 -- Índice para búsquedas de suscripciones por usuario
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
 

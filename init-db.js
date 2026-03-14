@@ -4,7 +4,6 @@ import path from 'path';
 
 console.log('Intentando conectar con la base de datos...');
 
-// Cargar .env manualmente (ya que estamos fuera de Vite)
 const envPath = path.resolve(process.cwd(), '.env');
 const envFile = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
 const match = envFile.match(/VITE_DATABASE_URL=(.*)/);
@@ -14,20 +13,19 @@ if (!match) {
   process.exit(1);
 }
 
-// Limpiar comillas si las hay
 const DATABASE_URL = match[1].trim().replace(/^["']|["']$/g, '');
 const sql = neon(DATABASE_URL);
 
 async function initDB() {
   const tables = [
-    \`CREATE TABLE IF NOT EXISTS users (
+    `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
       pin VARCHAR(4) NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
-    )\`,
+    )`,
     
-    \`CREATE TABLE IF NOT EXISTS menstrual_cycles (
+    `CREATE TABLE IF NOT EXISTS menstrual_cycles (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       start_date DATE NOT NULL,
@@ -35,16 +33,16 @@ async function initDB() {
       cycle_length INTEGER,
       notes TEXT,
       created_at TIMESTAMP DEFAULT NOW()
-    )\`,
+    )`,
     
-    \`CREATE TABLE IF NOT EXISTS intimate_moments (
+    `CREATE TABLE IF NOT EXISTS intimate_moments (
       id SERIAL PRIMARY KEY,
       moment_date TIMESTAMP NOT NULL,
       notes TEXT,
       created_at TIMESTAMP DEFAULT NOW()
-    )\`,
+    )`,
     
-    \`CREATE TABLE IF NOT EXISTS custom_date_ideas (
+    `CREATE TABLE IF NOT EXISTS custom_date_ideas (
       id SERIAL PRIMARY KEY,
       title VARCHAR(200) NOT NULL,
       category VARCHAR(50),
@@ -53,9 +51,9 @@ async function initDB() {
       emoji VARCHAR(10),
       added_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMP DEFAULT NOW()
-    )\`,
+    )`,
     
-    \`CREATE TABLE IF NOT EXISTS custom_meal_ideas (
+    `CREATE TABLE IF NOT EXISTS custom_meal_ideas (
       id SERIAL PRIMARY KEY,
       title VARCHAR(200) NOT NULL,
       type VARCHAR(50),
@@ -66,26 +64,26 @@ async function initDB() {
       emoji VARCHAR(10),
       added_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMP DEFAULT NOW()
-    )\`,
+    )`,
     
-    \`CREATE TABLE IF NOT EXISTS favorites (
+    `CREATE TABLE IF NOT EXISTS favorites (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       item_type VARCHAR(20),
       item_id VARCHAR(50),
       is_custom BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT NOW()
-    )\`,
+    )`,
     
-    \`CREATE TABLE IF NOT EXISTS game_scores (
+    `CREATE TABLE IF NOT EXISTS game_scores (
       id SERIAL PRIMARY KEY,
       game_name VARCHAR(100),
       player_name VARCHAR(100),
       score INTEGER,
       played_at TIMESTAMP DEFAULT NOW()
-    )\`,
+    )`,
     
-    \`CREATE TABLE IF NOT EXISTS medications (
+    `CREATE TABLE IF NOT EXISTS medications (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       name VARCHAR(200) NOT NULL,
@@ -97,21 +95,50 @@ async function initDB() {
       icon VARCHAR(10) DEFAULT '💊',
       is_active BOOLEAN DEFAULT true,
       created_at TIMESTAMP DEFAULT NOW()
-    )\`,
+    )`,
     
-    \`CREATE TABLE IF NOT EXISTS medication_logs (
+    `CREATE TABLE IF NOT EXISTS medication_logs (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       medication_id INTEGER REFERENCES medications(id) ON DELETE CASCADE,
       medication_name VARCHAR(200),
       taken_at TIMESTAMP NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
-    )\`
+    )`,
+    
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+    
+    `CREATE TABLE IF NOT EXISTS cycle_settings (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      period_duration INTEGER DEFAULT 5,
+      cycle_duration INTEGER DEFAULT 28,
+      last_period_start DATE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
+    
+    `CREATE TABLE IF NOT EXISTS cycle_notes (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      note_date DATE NOT NULL,
+      note_type VARCHAR(50) NOT NULL,
+      note TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`
   ];
 
   try {
     console.log('✅ Conexión establecida. Creando tablas...');
     for (const ddlText of tables) {
+      // Ejecutar cada DDL por separado usando la API de plain queries
       await sql(ddlText);
     }
     console.log('🎉 ¡Todas las tablas se crearon correctamente!');
