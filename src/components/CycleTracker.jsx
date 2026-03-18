@@ -21,6 +21,15 @@ export default function CycleTracker({ userId }) {
   const [showEditIntimateForm, setShowEditIntimateForm] = useState(false);
   const [editIntimateForm, setEditIntimateForm] = useState({ date: '', time: '', notes: '', protection: 'none' });
   
+  // Estado para Menú de Día
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [showDayMenu, setShowDayMenu] = useState(false);
+  const [dayRegistrationType, setDayRegistrationType] = useState('');
+  const [dayFormDetails, setDayFormDetails] = useState('');
+  const [dayFormProtection, setDayFormProtection] = useState('none');
+  const [dayFormNotes, setDayFormNotes] = useState('');
+
+  
   // Configuración inicial
   const [configForm, setConfigForm] = useState({
     lastPeriodStart: '',
@@ -152,15 +161,27 @@ export default function CycleTracker({ userId }) {
     e.preventDefault();
     try {
       let result;
+      // Tratar de encontrar a qué ciclo pertenece esta nota si es de tipo flow
+      let relatedCycleId = null;
+      if (noteForm.noteType === 'flow') {
+        const noteDate = safeParseDate(noteForm.date);
+        const relatedCycle = cycles.find(c => {
+          const start = safeParseDate(c.start_date);
+          const end = c.end_date ? safeParseDate(c.end_date) : new Date(2100, 0, 1); // Si está activo, cubre cualquier fecha futura
+          return noteDate && start && noteDate >= start && noteDate <= end;
+        });
+        relatedCycleId = relatedCycle ? relatedCycle.id : null;
+      }
+
       if (editingNote) {
         // Editar nota existente
-        result = await updateCycleNote(editingNote.id, noteForm.date, noteForm.noteType, noteForm.note, noteForm.noteType === 'intimate' ? noteForm.protection : null);
+        result = await updateCycleNote(editingNote.id, noteForm.date, noteForm.noteType, noteForm.note, noteForm.noteType === 'intimate' ? noteForm.protection : null, relatedCycleId);
         if (result.success) {
           toast.success('Nota actualizada');
         }
       } else {
         // Crear nueva nota
-        result = await addCycleNote(userId, noteForm.date, noteForm.noteType, noteForm.note, noteForm.noteType === 'intimate' ? noteForm.protection : null);
+        result = await addCycleNote(userId, noteForm.date, noteForm.noteType, noteForm.note, noteForm.noteType === 'intimate' ? noteForm.protection : null, relatedCycleId);
         if (result.success) {
           toast.success('Nota guardada');
         }
@@ -242,6 +263,90 @@ export default function CycleTracker({ userId }) {
       toast.success('Momento eliminado');
     } catch (error) {
       toast.error('Error al eliminar');
+    }
+  };
+
+  // Handlers para menú de día unificado
+  const handleDayClick = (day) => {
+    setSelectedDay(day);
+    setDayRegistrationType('');
+    setDayFormDetails('');
+    setDayFormProtection('none');
+    setDayFormNotes('');
+    setShowDayMenu(true);
+  };
+
+  const handleDayPeriodSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const formattedDate = format(selectedDay, 'yyyy-MM-dd');
+      const hasActiveCycle = cycles.length > 0 && !cycles[0].end_date;
+      let activeCycleId = hasActiveCycle ? cycles[0].id : null;
+
+      if (!hasActiveCycle) {
+        // Iniciar nuevo ciclo (sin fin)
+        const cycleResult = await addCycle(userId, formattedDate, null, dayFormNotes);
+        if(!cycleResult.success) {
+          toast.error('Error al iniciar ciclo');
+          return;
+        }
+        activeCycleId = cycleResult.data[0].id;
+      }
+
+      // Siempre registrar el flujo como nota con el ID del ciclo (nuevo o activo)
+      const noteResult = await addCycleNote(userId, formattedDate, 'flow', dayFormDetails, null, activeCycleId);
+      if (noteResult.success) {
+        toast.success(hasActiveCycle ? 'Flujo registrado' : 'Ciclo iniciado con flujo del día');
+        setShowDayMenu(false);
+        loadData();
+      }
+    } catch (error) {
+      toast.error('Error al guardar registro');
+    }
+  };
+
+  const handleDayPeriodEndSubmit = async (e) => {
+    e.preventDefault();
+    if (cycles.length === 0) {
+      toast.error('No hay un ciclo activo para finalizar');
+      return;
+    }
+    
+    const lastCycle = cycles[0]; // El ciclo más reciente
+    const formattedDate = format(selectedDay, 'yyyy-MM-dd');
+    
+    // Validar que la fecha de fin no sea el mismo día o anterior si se puede evitar, 
+    // pero permitiremos el mismo día si duró 1 día.
+    if (formattedDate < lastCycle.start_date) {
+      toast.error('La fecha de fin no puede ser anterior al inicio');
+      return;
+    }
+
+    try {
+      const result = await updateCycle(lastCycle.id, lastCycle.start_date, formattedDate, lastCycle.notes || '');
+      if (result.success) {
+        toast.success('Fin de período registrado');
+        setShowDayMenu(false);
+        loadData();
+      }
+    } catch (error) {
+      toast.error('Error al guardar el fin de ciclo');
+    }
+  };
+
+  const handleDayNoteSubmit = async (e, type) => {
+    e.preventDefault();
+    try {
+      const formattedDate = format(selectedDay, 'yyyy-MM-dd');
+      const protection = type === 'intimate' ? dayFormProtection : null;
+      const result = await addCycleNote(userId, formattedDate, type, dayFormDetails, protection);
+      if (result.success) {
+        toast.success('Registro guardado');
+        setShowDayMenu(false);
+        loadData();
+      }
+    } catch (error) {
+      toast.error('Error al guardar registro');
     }
   };
 
@@ -352,7 +457,9 @@ export default function CycleTracker({ userId }) {
     const start = safeParseDate(cycle?.start_date);
     if (!start) return [];
     if (!cycle?.end_date) {
-      return Array.from({ length: getAveragePeriodLength() }, (_, i) => addDays(start, i));
+      // Para el ciclo activo (sin fin), no autocompletar días sugeridos en rojo.
+      // Se pintarán solo los días que tengan notas de flujo explícitas (isFlowNote).
+      return [];
     }
     const end = safeParseDate(cycle.end_date);
     if (!end) return [];
@@ -490,6 +597,7 @@ export default function CycleTracker({ userId }) {
             
             // Notas del día
             const dayNotes = cycleNotes.filter(n => isSameDay(safeParseDate(n.note_date), day));
+            const isFlowNote = dayNotes.some(n => n.note_type === 'flow');
             // Momentos íntimos del día
             const dayIntimates = intimateMoments.filter(m => {
               const mDate = safeParseDate(m.moment_date);
@@ -499,7 +607,9 @@ export default function CycleTracker({ userId }) {
             return (
               <div 
                 key={day.toString()} 
-                className={`calendar-day ${isToday ? 'today' : ''} ${isBleeding ? 'bleeding' : ''} ${isPredictedBleeding && !isBleeding ? 'predicted' : ''} ${isFertile && !isBleeding ? 'fertile' : ''} ${isOvulation && !isBleeding ? 'ovulation' : ''}`}
+                className={`calendar-day ${isToday ? 'today' : ''} ${isBleeding || isFlowNote ? 'bleeding' : ''} ${isPredictedBleeding && !isBleeding ? 'predicted' : ''} ${isFertile && !isBleeding ? 'fertile' : ''} ${isOvulation && !isBleeding ? 'ovulation' : ''}`}
+                onClick={() => handleDayClick(day)}
+                style={{ cursor: 'pointer' }}
               >
                 <span className="day-number">{format(day, 'd')}</span>
                 {isOvulation && !isBleeding && <span className="ovulation-dot"></span>}
@@ -605,6 +715,7 @@ export default function CycleTracker({ userId }) {
                   <span className="cycle-range">
                     {note.note_type === 'note' && '📝 Nota'}
                     {note.note_type === 'symptom' && '🤒 Síntoma'}
+                    {note.note_type === 'flow' && '🩸 Flujo Menstrual'}
                     {note.note_type === 'intimate' && (note.protection === 'with' ? '💚 Con protección' : note.protection === 'without' ? '❤️ Sin protección' : '❤️ Actividad sexual')}
                     {note.note_type === 'mood' && '😊 Estado de ánimo'}
                   </span>
@@ -755,6 +866,120 @@ export default function CycleTracker({ userId }) {
         </div>
       )}
 
+      {/* Modal Menú de Día (Unificado) */}
+      {showDayMenu && selectedDay && (
+        <div className="modal-overlay" onClick={() => setShowDayMenu(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{format(selectedDay, "EEEE d 'de' MMMM", { locale: es })}</h3>
+              <button className="icon-btn" onClick={() => setShowDayMenu(false)}><X size={20} /></button>
+            </div>
+            
+            <div className="form-group" style={{ marginTop: '10px' }}>
+              <label>¿Qué deseas registrar este día?</label>
+              <select value={dayRegistrationType} onChange={e => {
+                setDayRegistrationType(e.target.value);
+                setDayFormDetails('');
+                setDayFormProtection('none');
+                setDayFormNotes('');
+              }}>
+                <option value="">Seleccionar...</option>
+                <option value="period_day">🩸 Día de Período (Sangrado/Flujo)</option>
+                {(cycles.length > 0 && !cycles[0].end_date) && (
+                  <option value="period_end">🩸 Fin del período actual</option>
+                )}
+                <option value="symptom">🤒 Síntoma</option>
+                <option value="mood">😊 Estado de ánimo</option>
+                <option value="note">📝 Nota general</option>
+                <option value="intimate">❤️ Actividad sexual</option>
+              </select>
+            </div>
+
+            {dayRegistrationType === 'period_day' && (
+              <form onSubmit={handleDayPeriodSubmit}>
+                <p style={{marginBottom: '15px', fontSize: '0.9rem', color: 'var(--text-secondary)'}}>
+                  {!cycles.length || cycles[0].end_date ? 
+                    'Al no tener un período activo, esto marcará hoy como tu inicio de ciclo y guardará la cantidad de flujo.' : 
+                    'Esto registrará tu nivel de sangrado para llevar el control día a día del ciclo actual.'}
+                </p>
+                <div className="form-group">
+                  <label>Cantidad de flujo</label>
+                  <select value={dayFormDetails} onChange={e => setDayFormDetails(e.target.value)} required>
+                    <option value="">Seleccionar...</option>
+                    <option value="Manchado (Spotting)">Manchado (Spotting)</option>
+                    <option value="Ligero">Ligero</option>
+                    <option value="Medio">Medio</option>
+                    <option value="Abundante">Abundante</option>
+                  </select>
+                </div>
+                {(!cycles.length || cycles[0].end_date) && (
+                  <div className="form-group">
+                    <label>Notas del inicio de ciclo (opcional)</label>
+                    <textarea 
+                      value={dayFormNotes} 
+                      onChange={e => setDayFormNotes(e.target.value)} 
+                      rows={2} 
+                      placeholder="Detalles sobre tu ciclo..."
+                    />
+                  </div>
+                )}
+                <button type="submit" className="btn-primary">
+                  {!cycles.length || cycles[0].end_date ? 'Iniciar Ciclo y Guardar Flujo' : 'Guardar Flujo'}
+                </button>
+              </form>
+            )}
+
+            {dayRegistrationType === 'period_end' && (
+              <form onSubmit={handleDayPeriodEndSubmit}>
+                <p style={{marginBottom: '15px', fontSize: '0.9rem', color: 'var(--text-secondary)'}}>
+                  Esto cerrará el período menstrual actual, marcando este día como el último día de sangrado.
+                </p>
+                <button type="submit" className="btn-primary">Finalizar Período</button>
+              </form>
+            )}
+
+            {(dayRegistrationType === 'symptom' || dayRegistrationType === 'mood' || dayRegistrationType === 'note') && (
+              <form onSubmit={e => handleDayNoteSubmit(e, dayRegistrationType)}>
+                <div className="form-group">
+                  <label>Detalle</label>
+                  <textarea 
+                    value={dayFormDetails} 
+                    onChange={e => setDayFormDetails(e.target.value)} 
+                    required 
+                    rows={3} 
+                    placeholder="¿Qué sentiste o pasó?" 
+                  />
+                </div>
+                <button type="submit" className="btn-primary">Guardar Registro</button>
+              </form>
+            )}
+
+            {dayRegistrationType === 'intimate' && (
+              <form onSubmit={e => handleDayNoteSubmit(e, 'intimate')}>
+                <div className="form-group">
+                  <label>Protección</label>
+                  <select value={dayFormProtection} onChange={e => setDayFormProtection(e.target.value)}>
+                    <option value="none">Seleccionar...</option>
+                    <option value="with">💚 Con protección</option>
+                    <option value="without">❤️ Sin protección</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Notas Privadas (opcional)</label>
+                  <textarea 
+                    value={dayFormDetails} 
+                    onChange={e => setDayFormDetails(e.target.value)} 
+                    rows={2} 
+                    placeholder="Un detalle especial..."
+                  />
+                </div>
+                <button type="submit" className="btn-primary">Guardar Momento</button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modal de Agregar/Editar Nota */}
       {showAddNote && (
         <div className="modal-overlay" onClick={() => { setShowAddNote(false); setEditingNote(null); }}>
@@ -781,10 +1006,27 @@ export default function CycleTracker({ userId }) {
                 >
                   <option value="note">Nota</option>
                   <option value="symptom">Síntoma</option>
+                  <option value="flow">Flujo Menstrual</option>
                   <option value="intimate">Actividad sexual</option>
                   <option value="mood">Estado de ánimo</option>
                 </select>
               </div>
+              {noteForm.noteType === 'flow' && (
+                <div className="form-group">
+                  <label>Cantidad de flujo</label>
+                  <select
+                    value={noteForm.note}
+                    onChange={e => setNoteForm({...noteForm, note: e.target.value})}
+                    required
+                  >
+                    <option value="">Seleccionar...</option>
+                    <option value="Manchado (Spotting)">Manchado (Spotting)</option>
+                    <option value="Ligero">Ligero</option>
+                    <option value="Medio">Medio</option>
+                    <option value="Abundante">Abundante</option>
+                  </select>
+                </div>
+              )}
               {noteForm.noteType === 'intimate' && (
                 <div className="form-group">
                   <label>Protección</label>

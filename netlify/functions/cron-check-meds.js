@@ -32,13 +32,15 @@ const myHandler = async (event, context) => {
 
     // Obtener la hora actual usando Intl.DateTimeFormat para evitar bugs de Zona Horaria en Servidores UTC
     const now = new Date();
-    const options = { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hour12: false };
-    const currentHourMin = new Intl.DateTimeFormat('es-AR', options).format(now);
+    const nowARStr = now.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' });
+    const nowAR = new Date(nowARStr);
+    const h = nowAR.getHours();
+    const m = nowAR.getMinutes();
+    const currentHourMin = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     
     console.log(`Server Time UTC: ${now.toISOString()} | Checking meds for AR Time: ${currentHourMin}`);
 
     // Crear una ventana de tiempo de los últimos 5 minutos para atrapar ejecuciones atrasadas
-    const [h, m] = currentHourMin.split(':').map(Number);
     const validMinutes = [];
     for (let i = 0; i <= 5; i++) {
         let min = m - i;

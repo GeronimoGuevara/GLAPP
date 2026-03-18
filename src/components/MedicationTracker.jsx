@@ -32,10 +32,12 @@ export default function MedicationTracker({ userId, userName }) {
   useEffect(() => {
     loadMedications();
     loadHistory();
-    checkNotificationPermission().then(enabled => {
-      setNotificationsEnabled(enabled);
-    });
-  }, []);
+    if (userId) {
+      checkNotificationPermission(false, userId).then(enabled => {
+        setNotificationsEnabled(enabled);
+      });
+    }
+  }, [userId]);
 
   const loadMedications = async () => {
     const result = await getMedications(userId);
@@ -184,7 +186,9 @@ export default function MedicationTracker({ userId, userName }) {
   const groupHistoryByDay = () => {
     const grouped = {};
     history.forEach(log => {
-      const date = format(parseISO(log.taken_at), 'yyyy-MM-dd');
+      const d = new Date(log.taken_at);
+      if (isNaN(d)) return;
+      const date = format(d, 'yyyy-MM-dd');
       if (!grouped[date]) {
         grouped[date] = [];
       }
@@ -199,24 +203,13 @@ export default function MedicationTracker({ userId, userName }) {
   const getTodaysMedications = () => {
     const now = new Date();
     const currentHour = format(now, 'HH:mm');
-    
+
     return medications
       .filter(med => med.is_active)
-      .map(med => {
-        const todayTaken = history.filter(h => {
-          const logDate = format(parseISO(h.taken_at), 'yyyy-MM-dd');
-          const today = format(now, 'yyyy-MM-dd');
-          return logDate === today && h.medication_id === med.id;
-        });
-
-        return {
-          ...med,
-          todayTaken: todayTaken.length,
-          totalToday: med.times.length,
-          nextTime: med.times.find(t => t > currentHour) || med.times[0],
-          allTakenToday: todayTaken.length >= med.times.length
-        };
-      });
+      .map(med => ({
+        ...med,
+        nextTime: med.times.find(t => t > currentHour) || med.times[0]
+      }));
   };
 
   const todaysMeds = getTodaysMedications();
@@ -390,9 +383,9 @@ export default function MedicationTracker({ userId, userName }) {
         ) : (
           <div className="medications-today">
             {todaysMeds.map(med => (
-              <div 
-                key={med.id} 
-                className={`medication-card ${med.allTakenToday ? 'completed' : ''}`}
+              <div
+                key={med.id}
+                className="medication-card"
                 style={{ borderLeftColor: med.color }}
               >
                 <div className="med-header">
@@ -404,14 +397,14 @@ export default function MedicationTracker({ userId, userName }) {
                     </div>
                   </div>
                   <div className="med-actions">
-                    <button 
+                    <button
                       className="btn-icon"
                       onClick={() => handleEdit(med)}
                       title="Editar"
                     >
                       <Edit2 size={16} />
                     </button>
-                    <button 
+                    <button
                       className="btn-icon"
                       onClick={() => handleDelete(med.id)}
                       title="Eliminar"
@@ -421,48 +414,13 @@ export default function MedicationTracker({ userId, userName }) {
                   </div>
                 </div>
 
-                <div className="med-progress">
-                  <div className="progress-bar-med">
-                    <div 
-                      className="progress-fill-med"
-                      style={{ 
-                        width: `${(med.todayTaken / med.totalToday) * 100}%`,
-                        backgroundColor: med.color
-                      }}
-                    />
-                  </div>
-                  <span className="progress-text">
-                    {med.todayTaken} de {med.totalToday} tomadas
-                  </span>
-                </div>
-
                 <div className="med-times">
-                  {med.times.map((time, idx) => {
-                    const taken = history.some(h => {
-                      const logDate = format(parseISO(h.taken_at), 'yyyy-MM-dd HH:mm');
-                      const today = format(new Date(), 'yyyy-MM-dd');
-                      return h.medication_id === med.id && 
-                             logDate.startsWith(today) &&
-                             format(parseISO(h.taken_at), 'HH:mm') === time;
-                    });
-
-                    return (
-                      <div key={idx} className={`time-slot ${taken ? 'taken' : ''}`}>
-                        <Clock size={14} />
-                        <span>{time}</span>
-                        {taken ? (
-                          <Check size={16} className="check-icon" />
-                        ) : (
-                          <button
-                            className="btn-take"
-                            onClick={() => handleMarkTaken(med.id, med.name)}
-                          >
-                            Tomar
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {med.times.map((time, idx) => (
+                    <div key={idx} className="time-slot">
+                      <Clock size={14} />
+                      <span>{time}</span>
+                    </div>
+                  ))}
                 </div>
 
                 {med.notes && (
@@ -491,17 +449,18 @@ export default function MedicationTracker({ userId, userName }) {
               .map(([date, logs]) => (
                 <div key={date} className="history-day">
                   <div className="history-date">
-                    {format(parseISO(date), "EEEE d 'de' MMMM", { locale: es })}
+                    {format(new Date(date), "EEEE d 'de' MMMM", { locale: es })}
                   </div>
                   <div className="history-items">
                     {logs.map(log => {
                       const med = medications.find(m => m.id === log.medication_id);
+                      const takenDate = new Date(log.taken_at);
                       return (
                         <div key={log.id} className="history-item">
                           <span className="history-icon">{med?.icon || '💊'}</span>
                           <span className="history-name">{log.medication_name}</span>
                           <span className="history-time">
-                            {format(parseISO(log.taken_at), 'HH:mm')}
+                            {isNaN(takenDate) ? '--:--' : format(takenDate, 'HH:mm')}
                           </span>
                         </div>
                       );

@@ -34,9 +34,16 @@ export async function initializeTables() {
   // Migración: agregar columna protection si no existe
   try {
     await sql`ALTER TABLE intimate_moments ADD COLUMN IF NOT EXISTS protection VARCHAR(20)`;
+    await sql`ALTER TABLE cycle_notes ADD COLUMN IF NOT EXISTS protection VARCHAR(20)`;
   } catch (e) {
-    // La columna ya existe o hay otro error, continuamos
     console.log('Migración protection:', e.message);
+  }
+
+  // Migración: agregar columna cycle_id a cycle_notes
+  try {
+    await sql`ALTER TABLE cycle_notes ADD COLUMN IF NOT EXISTS cycle_id INTEGER REFERENCES menstrual_cycles(id) ON DELETE CASCADE`;
+  } catch (e) {
+    console.log('Migración cycle_id:', e.message);
   }
 
   const tables = [
@@ -142,7 +149,7 @@ export async function initializeTables() {
     `CREATE TABLE IF NOT EXISTS push_subscriptions (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      endpoint TEXT NOT NULL,
+      endpoint TEXT NOT NULL UNIQUE,
       p256dh TEXT NOT NULL,
       auth TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
@@ -163,9 +170,11 @@ export async function initializeTables() {
     `CREATE TABLE IF NOT EXISTS cycle_notes (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      cycle_id INTEGER REFERENCES menstrual_cycles(id) ON DELETE CASCADE,
       note_date DATE NOT NULL,
       note_type VARCHAR(50) NOT NULL,
       note TEXT,
+      protection VARCHAR(20),
       created_at TIMESTAMP DEFAULT NOW()
     )`
   ];
@@ -592,7 +601,7 @@ export async function deleteCycle(cycleId) {
 }
 
 // Funciones para notas del ciclo (síntomas, actividad sexual, etc.)
-export async function addCycleNote(userId, date, noteType, note = '', protection = null) {
+export async function addCycleNote(userId, date, noteType, note = '', protection = null, cycleId = null) {
   if (!sql) {
     console.error('Database no disponible');
     return { success: false, error: 'Database no configurada' };
@@ -600,8 +609,8 @@ export async function addCycleNote(userId, date, noteType, note = '', protection
   
   try {
     const result = await sql`
-      INSERT INTO cycle_notes (user_id, note_date, note_type, note, protection)
-      VALUES (${userId}, ${date}, ${noteType}, ${note}, ${protection})
+      INSERT INTO cycle_notes (user_id, cycle_id, note_date, note_type, note, protection)
+      VALUES (${userId}, ${cycleId}, ${date}, ${noteType}, ${note}, ${protection})
       RETURNING *
     `;
     return { success: true, data: result };
@@ -647,7 +656,7 @@ export async function deleteCycleNote(noteId) {
   }
 }
 
-export async function updateCycleNote(noteId, date, noteType, note, protection = null) {
+export async function updateCycleNote(noteId, date, noteType, note, protection = null, cycleId = null) {
   if (!sql) {
     console.error('Database no disponible');
     return { success: false, error: 'Database no configurada' };
@@ -656,7 +665,7 @@ export async function updateCycleNote(noteId, date, noteType, note, protection =
   try {
     await sql`
       UPDATE cycle_notes 
-      SET note_date = ${date}, note_type = ${noteType}, note = ${note}, protection = ${protection}
+      SET note_date = ${date}, note_type = ${noteType}, note = ${note}, protection = ${protection}, cycle_id = COALESCE(${cycleId}, cycle_id)
       WHERE id = ${noteId}
     `;
     return { success: true, data: [] };
