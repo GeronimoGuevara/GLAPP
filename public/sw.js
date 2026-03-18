@@ -23,7 +23,7 @@ self.addEventListener('push', function (event) {
       event.waitUntil(
         self.registration.showNotification('GLAPP', {
           body: event.data.text(),
-          icon: '/icon-192.png'
+          icon: '/FotoIcono.jpeg'
         })
       );
     }
