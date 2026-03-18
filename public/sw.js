@@ -5,8 +5,8 @@ self.addEventListener('push', function (event) {
       const data = event.data.json();
       const options = {
         body: data.body || 'Tienes una nueva notificación',
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
+        icon: '/FotoIcono.jpeg',
+        badge: '/FotoIcono.jpeg',
         vibrate: [200, 100, 200, 100, 200, 100, 200],
         data: {
           url: data.url || '/',
