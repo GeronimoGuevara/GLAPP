@@ -14,7 +14,7 @@ export default defineConfig({
       injectManifest: {
         injectionPoint: undefined
       },
-      includeAssets: ['FotoIcono.jpeg'],
+      includeAssets: ['apple-touch-icon.png', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'GLAPP',
         short_name: 'GLAPP',
@@ -27,21 +27,21 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'FotoIcono.jpeg',
+            src: 'icon-192.png',
             sizes: '192x192',
-            type: 'image/jpeg',
+            type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'FotoIcono.jpeg',
+            src: 'icon-512.png',
             sizes: '512x512',
-            type: 'image/jpeg',
+            type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'FotoIcono.jpeg',
+            src: 'icon-512.png',
             sizes: '512x512',
-            type: 'image/jpeg',
+            type: 'image/png',
             purpose: 'any maskable'
           }
         ]
