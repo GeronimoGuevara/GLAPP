@@ -69,8 +69,8 @@ async function subscribeToPush(userId) {
       });
     }
 
-    // Enviar la suscripción a nuestro backend en Netlify
-    const response = await fetch('/.netlify/functions/subscribe', {
+    // Enviar la suscripción a nuestro backend en Vercel
+    const response = await fetch('/api/subscribe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -83,7 +83,7 @@ async function subscribeToPush(userId) {
     
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Error desde el servidor de Netlify:', errorData);
+      console.error('Error desde el servidor de Vercel:', errorData);
       toast.error('Error al conectar con el servidor de notificaciones.');
       return;
     }
@@ -96,13 +96,13 @@ async function subscribeToPush(userId) {
 }
 
 /**
- * Pide al servidor de Netlify que envíe una notificación Push REAL e inmediata a este dispositivo. 
+ * Pide al servidor de Vercel que envíe una notificación Push REAL e inmediata a este dispositivo. 
  * Sirve para probar si el backend y las llaves VAPID están bien configuradas.
  */
 export async function testRealPushNotification(userId) {
   try {
     const toastId = toast.loading('Enviando petición de prueba al servidor...');
-    const response = await fetch('/.netlify/functions/test-push', {
+    const response = await fetch('/api/test-push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId })

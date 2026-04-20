@@ -247,7 +247,7 @@ export default function MedicationTracker({ userId, userName }) {
               <Bell size={24} />
             </div>
             <div className="notification-text">
-              <strong>Conectado a Netlify Push</strong>
+              <strong>Conectado a Notificaciones Push</strong>
               <p>Mantenemos tu dispositivo conectado en segundo plano.</p>
             </div>
           </div>

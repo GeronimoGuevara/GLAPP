@@ -10,10 +10,11 @@ export default defineConfig({
       srcDir: 'public',
       filename: 'sw.js',
       registerType: 'autoUpdate',
+      manifestFilename: 'manifest.json',
       injectManifest: {
         injectionPoint: undefined
       },
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['FotoIcono.jpeg'],
       manifest: {
         name: 'GLAPP',
         short_name: 'GLAPP',
