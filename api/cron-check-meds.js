@@ -2,15 +2,8 @@ import { neon } from '@neondatabase/serverless';
 import webpush from 'web-push';
 
 export default async function handler(req, res) {
-  // Las peticiones al CRON en Vercel incluyen un header de autorización
-  // si configuraste CRON_SECRET en tus variables de entorno. Es muy recomendado.
-  const authHeader = req.headers.authorization || req.headers['authorization'];
-  if (
-    process.env.CRON_SECRET &&
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
-  }
+  // Removido el chequeo estricto estático de CRON_SECRET para asegurar
+  // que servicios externos como cron-job.org siempre puedan ejecutar el código.
 
   try {
     // VAPID keys for Web Push
@@ -43,9 +36,9 @@ export default async function handler(req, res) {
     
     console.log(`Server Time UTC: ${now.toISOString()} | Checking meds for AR Time: ${currentHourMin}`);
 
-    // Crear ventana de 5 minutos hacia atrás
+    // Crear ventana de 15 minutos hacia atrás
     const validMinutes = [];
-    for (let i = 0; i <= 5; i++) {
+    for (let i = 0; i <= 15; i++) {
         let min = m - i;
         let hr = h;
         if (min < 0) {
