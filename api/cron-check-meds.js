@@ -36,6 +36,14 @@ export default async function handler(req, res) {
     
     console.log(`Server Time UTC: ${now.toISOString()} | Checking meds for AR Time: ${currentHourMin}`);
 
+    // Obtener la fecha actual de Argentina (YYYY-MM-DD) para los logs
+    const currentDateARStr = nowARStr.split(',')[0]; // Format is usually MM/DD/YYYY from toLocaleString, let's format it properly
+    const dateObj = new Date(nowARStr);
+    const y = dateObj.getFullYear();
+    const mo = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+    const d = dateObj.getDate().toString().padStart(2, '0');
+    const todayAR = `${y}-${mo}-${d}`;
+
     // Crear ventana de 15 minutos hacia atrás
     const validMinutes = [];
     for (let i = 0; i <= 15; i++) {
@@ -48,6 +56,20 @@ export default async function handler(req, res) {
         validMinutes.push(`${hr.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`);
     }
 
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS notification_logs (
+          medication_id INTEGER,
+          notified_date TEXT,
+          notified_time TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          PRIMARY KEY (medication_id, notified_date, notified_time)
+        )
+      `;
+    } catch (e) {
+      console.error('Error creating notification_logs table:', e);
+    }
+
     const medications = await sql`
       SELECT m.id, m.name, m.times, m.user_id, u.name as user_name
       FROM medications m
@@ -57,7 +79,8 @@ export default async function handler(req, res) {
 
     const medsToNotify = [];
     
-    medications.forEach(med => {
+    // Validar cada pastilla contra el historial para evitar spam duplicado
+    for (const med of medications) {
       let timesArray = [];
       try {
         timesArray = JSON.parse(med.times) || [];
@@ -65,24 +88,46 @@ export default async function handler(req, res) {
         if (typeof med.times === 'string') timesArray = [med.times];
       }
 
-      timesArray.forEach(time => {
+      for (const time of timesArray) {
         if (validMinutes.includes(time)) {
-          medsToNotify.push({
-            medicationId: med.id,
-            medicationName: med.name,
-            userId: med.user_id,
-            userName: med.user_name,
-            time: time
-          });
+          // Chequear si ya se notificó esta pastilla HOY a ESTA HORA
+          const logs = await sql`
+            SELECT 1 FROM notification_logs 
+            WHERE medication_id = ${med.id} 
+            AND notified_date = ${todayAR}
+            AND notified_time = ${time}
+          `;
+          
+          if (logs.length === 0) {
+            // No notificada todavía
+            medsToNotify.push({
+              medicationId: med.id,
+              medicationName: med.name,
+              userId: med.user_id,
+              userName: med.user_name,
+              time: time
+            });
+            
+            // Loguear que YA FUE NOTIFICADA (se hace aquí para evitar carreras con el cron)
+            try {
+              await sql`
+                INSERT INTO notification_logs (medication_id, notified_date, notified_time)
+                VALUES (${med.id}, ${todayAR}, ${time})
+                ON CONFLICT DO NOTHING
+              `;
+            } catch (e) {
+              console.error('Error recording notification log:', e);
+            }
+          }
         }
-      });
-    });
-
-    if (medsToNotify.length === 0) {
-      return res.status(200).json({ success: true, message: 'No medications scheduled within the 5 minute window' });
+      }
     }
 
-    console.log(`Found ${medsToNotify.length} medications to notify:`, medsToNotify);
+    if (medsToNotify.length === 0) {
+      return res.status(200).json({ success: true, message: 'No pending medications unsent scheduled within the window' });
+    }
+
+    console.log(`Found ${medsToNotify.length} NEW medications to notify:`, medsToNotify);
 
     const notificationsSent = [];
     const subscriptionsToRemove = [];
