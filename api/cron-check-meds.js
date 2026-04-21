@@ -139,7 +139,10 @@ export default async function handler(req, res) {
         };
 
         try {
-          await webpush.sendNotification(pushSubscription, notificationPayload);
+          await webpush.sendNotification(pushSubscription, notificationPayload, {
+            urgency: 'high',
+            TTL: 86400 // 24 hours
+          });
           notificationsSent.push(sub.endpoint);
         } catch (error) {
           if (error.statusCode === 404 || error.statusCode === 410) {

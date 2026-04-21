@@ -5,9 +5,10 @@ self.addEventListener('push', function (event) {
       const data = event.data.json();
       const options = {
         body: data.body || 'Tienes una nueva notificación',
-        icon: '/FotoIcono.jpeg',
-        badge: '/FotoIcono.jpeg',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
         vibrate: [200, 100, 200, 100, 200, 100, 200],
+        tag: data.medicationId ? `med-${data.medicationId}` : 'default',
         data: {
           url: data.url || '/',
           dateOfArrival: Date.now(),
@@ -23,7 +24,7 @@ self.addEventListener('push', function (event) {
       event.waitUntil(
         self.registration.showNotification('GLAPP', {
           body: event.data.text(),
-          icon: '/FotoIcono.jpeg'
+          icon: '/icon-192.png'
         })
       );
     }
