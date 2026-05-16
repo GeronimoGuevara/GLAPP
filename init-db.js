@@ -18,10 +18,17 @@ const sql = neon(DATABASE_URL);
 
 async function initDB() {
   const tables = [
+    `CREATE TABLE IF NOT EXISTS couples (
+      id SERIAL PRIMARY KEY,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+    
     `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
       pin VARCHAR(4) NOT NULL,
+      gender VARCHAR(10) DEFAULT 'mujer',
+      couple_id INTEGER REFERENCES couples(id),
       created_at TIMESTAMP DEFAULT NOW()
     )`,
     
@@ -37,6 +44,7 @@ async function initDB() {
     
     `CREATE TABLE IF NOT EXISTS intimate_moments (
       id SERIAL PRIMARY KEY,
+      couple_id INTEGER REFERENCES couples(id),
       moment_date TIMESTAMP NOT NULL,
       notes TEXT,
       created_at TIMESTAMP DEFAULT NOW()
@@ -77,6 +85,7 @@ async function initDB() {
     
     `CREATE TABLE IF NOT EXISTS game_scores (
       id SERIAL PRIMARY KEY,
+      couple_id INTEGER REFERENCES couples(id),
       game_name VARCHAR(100),
       player_name VARCHAR(100),
       score INTEGER,

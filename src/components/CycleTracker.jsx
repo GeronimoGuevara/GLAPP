@@ -5,7 +5,7 @@ import { format, addDays, differenceInDays, parseISO, startOfMonth, endOfMonth, 
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 
-export default function CycleTracker({ userId }) {
+export default function CycleTracker({ user }) {
   const [cycles, setCycles] = useState([]);
   const [cycleNotes, setCycleNotes] = useState([]);
   const [intimateMoments, setIntimateMoments] = useState([]);
@@ -61,13 +61,13 @@ export default function CycleTracker({ userId }) {
     setLoading(true);
     try {
       // Cargar ciclos
-      const cyclesResult = await getCycles(userId, 50);
+      const cyclesResult = await getCycles(user.couple_id, 50);
       if (cyclesResult.success && Array.isArray(cyclesResult.data)) {
         setCycles(cyclesResult.data);
       }
       
       // Cargar configuración
-      const settingsResult = await getCycleSettings(userId);
+      const settingsResult = await getCycleSettings(user.couple_id);
       if (settingsResult.success && settingsResult.data) {
         setSettings(settingsResult.data);
         // Si hay configuración, precargar el formulario
@@ -85,13 +85,13 @@ export default function CycleTracker({ userId }) {
       // Cargar notas del mes actual
       const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
       const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
-      const notesResult = await getCycleNotes(userId, monthStart, monthEnd);
+      const notesResult = await getCycleNotes(user.couple_id, monthStart, monthEnd);
       if (notesResult.success && Array.isArray(notesResult.data)) {
         setCycleNotes(notesResult.data);
       }
       
       // Cargar momentos íntimos
-      const intimateResult = await getIntimateMoments(100);
+      const intimateResult = await getIntimateMoments(user.couple_id, 100);
       if (intimateResult.success && Array.isArray(intimateResult.data)) {
         setIntimateMoments(intimateResult.data);
       }
@@ -106,7 +106,7 @@ export default function CycleTracker({ userId }) {
     e.preventDefault();
     try {
       // Guardar la fecha del último período junto con la configuración
-      const result = await saveCycleSettings(userId, configForm.periodDuration, configForm.cycleDuration, configForm.lastPeriodStart || null);
+      const result = await saveCycleSettings(user.couple_id, user.id, configForm.periodDuration, configForm.cycleDuration, configForm.lastPeriodStart || null);
       if (result.success) {
         setSettings({ 
           period_duration: configForm.periodDuration, 
@@ -131,7 +131,7 @@ export default function CycleTracker({ userId }) {
           toast.success('Período actualizado');
         }
       } else {
-        const result = await addCycle(userId, periodForm.startDate, periodForm.endDate || null, periodForm.notes);
+        const result = await addCycle(user.id, periodForm.startDate, periodForm.endDate || null, periodForm.notes);
         if (result.success) {
           toast.success('Período registrado');
         }
@@ -285,7 +285,7 @@ export default function CycleTracker({ userId }) {
 
       if (!hasActiveCycle) {
         // Iniciar nuevo ciclo (sin fin)
-        const cycleResult = await addCycle(userId, formattedDate, null, dayFormNotes);
+        const cycleResult = await addCycle(user.id, formattedDate, null, dayFormNotes);
         if(!cycleResult.success) {
           toast.error('Error al iniciar ciclo');
           return;
@@ -294,7 +294,7 @@ export default function CycleTracker({ userId }) {
       }
 
       // Siempre registrar el flujo como nota con el ID del ciclo (nuevo o activo)
-      const noteResult = await addCycleNote(userId, formattedDate, 'flow', dayFormDetails, null, activeCycleId);
+      const noteResult = await addCycleNote(user.id, formattedDate, 'flow', dayFormDetails, null, activeCycleId);
       if (noteResult.success) {
         toast.success(hasActiveCycle ? 'Flujo registrado' : 'Ciclo iniciado con flujo del día');
         setShowDayMenu(false);
@@ -339,7 +339,7 @@ export default function CycleTracker({ userId }) {
     try {
       const formattedDate = format(selectedDay, 'yyyy-MM-dd');
       const protection = type === 'intimate' ? dayFormProtection : null;
-      const result = await addCycleNote(userId, formattedDate, type, dayFormDetails, protection);
+      const result = await addCycleNote(user.id, formattedDate, type, dayFormDetails, protection);
       if (result.success) {
         toast.success('Registro guardado');
         setShowDayMenu(false);

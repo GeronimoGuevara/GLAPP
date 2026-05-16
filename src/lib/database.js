@@ -46,12 +46,49 @@ export async function initializeTables() {
     console.log('Migración cycle_id:', e.message);
   }
 
+  // Migración: tabla couples y columnas en users
+  try {
+    await sql`CREATE TABLE IF NOT EXISTS couples (id SERIAL PRIMARY KEY, created_at TIMESTAMP DEFAULT NOW())`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(10) DEFAULT 'mujer'`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS couple_id INTEGER REFERENCES couples(id)`;
+    await sql`ALTER TABLE intimate_moments ADD COLUMN IF NOT EXISTS couple_id INTEGER REFERENCES couples(id)`;
+    await sql`ALTER TABLE game_scores ADD COLUMN IF NOT EXISTS couple_id INTEGER REFERENCES couples(id)`;
+
+    // Auto-vincular usuarios existentes a una pareja inicial
+    const usersExist = await sql`SELECT * FROM users WHERE couple_id IS NULL`;
+    if (usersExist.length > 0) {
+      // Crear una pareja por defecto
+      const newCouple = await sql`INSERT INTO couples DEFAULT VALUES RETURNING id`;
+      const coupleId = newCouple[0].id;
+      // Actualizar a todos los usuarios sueltos a esta pareja
+      await sql`UPDATE users SET couple_id = ${coupleId} WHERE couple_id IS NULL`;
+      
+      // Intentar inferir género por nombre (hardcodeado según contexto "Geronimo/Lucia" típico en esta app, o genérico)
+      await sql`UPDATE users SET gender = 'hombre' WHERE name ILIKE '%gero%' OR name ILIKE '%geronimo%' OR name ILIKE '%hombre%'`;
+      await sql`UPDATE users SET gender = 'mujer' WHERE name ILIKE '%lucia%' OR name ILIKE '%lu%' OR name ILIKE '%mujer%' OR name ILIKE '%novia%'`;
+
+      // Actualizar tablas antiguas sin couple_id
+      await sql`UPDATE intimate_moments SET couple_id = ${coupleId} WHERE couple_id IS NULL`;
+      await sql`UPDATE game_scores SET couple_id = ${coupleId} WHERE couple_id IS NULL`;
+    }
+  } catch (e) {
+    console.log('Migración parejas:', e.message);
+  }
+
   const tables = [
-    // Tabla de usuarios (solo ustedes dos)
+    // Tabla de parejas
+    `CREATE TABLE IF NOT EXISTS couples (
+      id SERIAL PRIMARY KEY,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+
+    // Tabla de usuarios (ahora con couple_id y gender)
     `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
       pin VARCHAR(4) NOT NULL,
+      gender VARCHAR(10) DEFAULT 'mujer',
+      couple_id INTEGER REFERENCES couples(id),
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
@@ -69,6 +106,7 @@ export async function initializeTables() {
     // Tabla de relaciones íntimas
     `CREATE TABLE IF NOT EXISTS intimate_moments (
       id SERIAL PRIMARY KEY,
+      couple_id INTEGER REFERENCES couples(id),
       moment_date TIMESTAMP NOT NULL,
       notes TEXT,
       protection VARCHAR(20),
@@ -114,6 +152,7 @@ export async function initializeTables() {
     // Tabla de juegos (para guardar puntajes)
     `CREATE TABLE IF NOT EXISTS game_scores (
       id SERIAL PRIMARY KEY,
+      couple_id INTEGER REFERENCES couples(id),
       game_name VARCHAR(100),
       player_name VARCHAR(100),
       score INTEGER,
@@ -211,7 +250,7 @@ export async function addCycle(userId, startDate, endDate = null, notes = '') {
   }
 }
 
-export async function getCycles(userId, limit = 12) {
+export async function getCycles(coupleId, limit = 12) {
   if (!sql) {
     console.error('Database no disponible');
     return { success: false, error: 'Database no configurada', data: [] };
@@ -224,6 +263,7 @@ export async function getCycles(userId, limit = 12) {
         SELECT mc.*, u.name as user_name
         FROM menstrual_cycles mc
         LEFT JOIN users u ON mc.user_id = u.id
+        WHERE u.couple_id = ${coupleId} OR u.couple_id IS NULL
         ORDER BY mc.start_date DESC
         LIMIT ${limit}
       `;
@@ -233,6 +273,7 @@ export async function getCycles(userId, limit = 12) {
       console.warn('Error with JOIN, trying simple query:', joinError);
       const result = await sql`
         SELECT * FROM menstrual_cycles
+        WHERE user_id IN (SELECT id FROM users WHERE couple_id = ${coupleId} OR couple_id IS NULL)
         ORDER BY start_date DESC
         LIMIT ${limit}
       `;
@@ -245,7 +286,7 @@ export async function getCycles(userId, limit = 12) {
 }
 
 // Funciones para momentos íntimos
-export async function addIntimateMoment(momentDate, notes = '', protection = null) {
+export async function addIntimateMoment(coupleId, momentDate, notes = '', protection = null) {
   if (!sql) {
     console.error('Database no disponible');
     return { success: false, error: 'Database no configurada' };
@@ -253,8 +294,8 @@ export async function addIntimateMoment(momentDate, notes = '', protection = nul
   
   try {
     const result = await sql`
-      INSERT INTO intimate_moments (moment_date, notes, protection)
-      VALUES (${momentDate}, ${notes}, ${protection})
+      INSERT INTO intimate_moments (couple_id, moment_date, notes, protection)
+      VALUES (${coupleId}, ${momentDate}, ${notes}, ${protection})
       RETURNING *
     `;
     return { success: true, data: result };
@@ -264,7 +305,7 @@ export async function addIntimateMoment(momentDate, notes = '', protection = nul
   }
 }
 
-export async function getIntimateMoments(limit = 50) {
+export async function getIntimateMoments(coupleId, limit = 50) {
   if (!sql) {
     console.error('Database no disponible');
     return { success: false, error: 'Database no configurada', data: [] };
@@ -273,6 +314,7 @@ export async function getIntimateMoments(limit = 50) {
   try {
     const result = await sql`
       SELECT * FROM intimate_moments
+      WHERE couple_id = ${coupleId} OR couple_id IS NULL
       ORDER BY moment_date DESC
       LIMIT ${limit}
     `;
@@ -283,7 +325,7 @@ export async function getIntimateMoments(limit = 50) {
   }
 }
 
-export async function getIntimateMomentsByMonth(monthStart, monthEnd) {
+export async function getIntimateMomentsByMonth(coupleId, monthStart, monthEnd) {
   if (!sql) {
     console.error('Database no disponible');
     return { success: false, error: 'Database no configurada', data: [] };
@@ -292,7 +334,8 @@ export async function getIntimateMomentsByMonth(monthStart, monthEnd) {
   try {
     const result = await sql`
       SELECT * FROM intimate_moments
-      WHERE moment_date >= ${monthStart} AND moment_date < ${monthEnd}
+      WHERE (couple_id = ${coupleId} OR couple_id IS NULL)
+      AND moment_date >= ${monthStart} AND moment_date < ${monthEnd}
       ORDER BY moment_date DESC
     `;
     return { success: true, data: result };
@@ -629,8 +672,7 @@ export async function getCycleNotes(userId, monthStart, monthEnd) {
   try {
     const result = await sql`
       SELECT * FROM cycle_notes
-      WHERE user_id = ${userId}
-        AND note_date >= ${monthStart}
+      WHERE note_date >= ${monthStart}
         AND note_date <= ${monthEnd}
       ORDER BY note_date ASC
     `;
@@ -683,9 +725,9 @@ export async function saveCycleSettings(userId, periodDuration, cycleDuration, l
   }
   
   try {
-    // Verificar si ya existe configuración
+    // Verificar si ya existe configuración (compartida para ambos)
     const existing = await sql`
-      SELECT * FROM cycle_settings WHERE user_id = ${userId}
+      SELECT * FROM cycle_settings LIMIT 1
     `;
     
     if (existing.length > 0) {
@@ -693,7 +735,7 @@ export async function saveCycleSettings(userId, periodDuration, cycleDuration, l
       await sql`
         UPDATE cycle_settings
         SET period_duration = ${periodDuration}, cycle_duration = ${cycleDuration}, last_period_start = ${lastPeriodStart}, updated_at = NOW()
-        WHERE user_id = ${userId}
+        WHERE id = ${existing[0].id}
       `;
     } else {
       // Crear
@@ -717,7 +759,7 @@ export async function getCycleSettings(userId) {
   
   try {
     const result = await sql`
-      SELECT * FROM cycle_settings WHERE user_id = ${userId}
+      SELECT * FROM cycle_settings LIMIT 1
     `;
     return { success: true, data: result.length > 0 ? result[0] : null };
   } catch (error) {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Dices, Heart, Trophy } from 'lucide-react';
 
-export default function Games({ userName }) {
+export default function Games({ user }) {
   const [activeGame, setActiveGame] = useState(null);
 
   return (
@@ -37,7 +37,7 @@ export default function Games({ userName }) {
             ← Volver
           </button>
           
-          {activeGame === 'trivia' && <CoupleTrivia userName={userName} />}
+          {activeGame === 'trivia' && <CoupleTrivia userName={user.name} />}
           {activeGame === 'dice' && <LoveDice />}
           {activeGame === 'memory' && <MemoryGame />}
         </div>

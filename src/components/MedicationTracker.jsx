@@ -13,7 +13,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { checkNotificationPermission, testRealPushNotification } from '../lib/notifications';
 
-export default function MedicationTracker({ userId, userName }) {
+export default function MedicationTracker({ user }) {
   const [medications, setMedications] = useState([]);
   const [history, setHistory] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -32,15 +32,15 @@ export default function MedicationTracker({ userId, userName }) {
   useEffect(() => {
     loadMedications();
     loadHistory();
-    if (userId) {
-      checkNotificationPermission(false, userId).then(enabled => {
+    if (user.id) {
+      checkNotificationPermission(false, user.id).then(enabled => {
         setNotificationsEnabled(enabled);
       });
     }
-  }, [userId]);
+  }, [user.id]);
 
   const loadMedications = async () => {
-    const result = await getMedications(userId);
+    const result = await getMedications(user.id);
     if (result.success) {
       const parsed = result.data.map(med => ({
         ...med,
@@ -51,7 +51,7 @@ export default function MedicationTracker({ userId, userName }) {
   };
 
   const loadHistory = async () => {
-    const result = await getMedicationHistory(userId, 30);
+    const result = await getMedicationHistory(user.id, 30);
     if (result.success) {
       setHistory(result.data);
     }
@@ -82,7 +82,7 @@ export default function MedicationTracker({ userId, userName }) {
     
     const medData = {
       ...newMed,
-      userId,
+      userId: user.id,
       isActive: true
     };
 
@@ -90,13 +90,13 @@ export default function MedicationTracker({ userId, userName }) {
     if (editingId) {
       result = await updateMedication(editingId, medData);
     } else {
-      result = await addMedication(userId, medData);
+      result = await addMedication(user.id, medData);
     }
 
     if (result.success) {
       // Intentar suscribir el celular silenciosamente si ya hay permiso (Push en Background)
       if (notificationsEnabled) {
-         checkNotificationPermission(false, userId);
+         checkNotificationPermission(false, user.id);
       }
 
       loadMedications();
@@ -137,14 +137,14 @@ export default function MedicationTracker({ userId, userName }) {
       if (updated.isActive) {
         // Intentar Push Background
         if (notificationsEnabled) {
-          checkNotificationPermission(false, userId);
+          checkNotificationPermission(false, user.id);
         }
       }
     }
   };
 
   const handleMarkTaken = async (medId, medName) => {
-    const result = await addMedicationLog(userId, medId, new Date().toISOString());
+    const result = await addMedicationLog(user.id, medId, new Date().toISOString());
     if (result.success) {
       loadHistory();
       // Mostrar feedback visual
@@ -173,7 +173,7 @@ export default function MedicationTracker({ userId, userName }) {
       return;
     }
 
-    const enabled = await checkNotificationPermission(true, userId);
+    const enabled = await checkNotificationPermission(true, user.id);
     setNotificationsEnabled(enabled);
     if (enabled) {
       toast.success('Notificaciones en segundo plano activadas');
@@ -251,7 +251,7 @@ export default function MedicationTracker({ userId, userName }) {
               <p>Mantenemos tu dispositivo conectado en segundo plano.</p>
             </div>
           </div>
-          <button className="btn-secondary btn-sm" onClick={() => testRealPushNotification(userId)}>
+          <button className="btn-secondary btn-sm" onClick={() => testRealPushNotification(user.id)}>
             Probar Push
           </button>
         </div>

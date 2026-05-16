@@ -5,7 +5,7 @@ import { format, parseISO, differenceInDays, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 
-export default function IntimateTracker() {
+export default function IntimateTracker({ user }) {
   const [moments, setMoments] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMoment, setEditingMoment] = useState(null);
@@ -27,7 +27,7 @@ export default function IntimateTracker() {
   }, []);
 
   const loadMoments = async () => {
-    const result = await getIntimateMoments(50);
+    const result = await getIntimateMoments(user.couple_id, 50);
     if (result.success) {
       setMoments(result.data);
     }
@@ -37,7 +37,7 @@ export default function IntimateTracker() {
     e.preventDefault();
     const datetime = `${newMoment.date}T${newMoment.time}:00`;
     const protection = newMoment.protection === 'none' ? null : newMoment.protection;
-    const result = await addIntimateMoment(datetime, newMoment.notes, protection);
+    const result = await addIntimateMoment(user.couple_id, datetime, newMoment.notes, protection);
     
     if (result.success) {
       loadMoments();

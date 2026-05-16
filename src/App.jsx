@@ -9,7 +9,7 @@ import Games from './components/Games';
 import MedicationTracker from './components/MedicationTracker';
 import './styles/App.css';
 import { Toaster } from 'react-hot-toast';
-import { initializeTables, getCycles, getIntimateMoments } from './lib/database';
+import { initializeTables, getCycles, getIntimateMoments, getCycleSettings } from './lib/database';
 
 
 function App() {
@@ -57,19 +57,19 @@ function App() {
   const renderView = () => {
     switch (activeView) {
       case 'cycle':
-        return <CycleTracker userId={currentUser.id} />;
+        return <CycleTracker user={currentUser} />;
       case 'intimate':
-        return <IntimateTracker />;
+        return <IntimateTracker user={currentUser} />;
       case 'dates':
-        return <DateIdeas userId={currentUser.id} />;
+        return <DateIdeas user={currentUser} />;
       case 'meals':
-        return <MealIdeas userId={currentUser.id} />;
+        return <MealIdeas user={currentUser} />;
       case 'games':
-        return <Games userName={currentUser.name} />;
+        return <Games user={currentUser} />;
       case 'medications':
-        return <MedicationTracker userId={currentUser.id} userName={currentUser.name} />;
+        return <MedicationTracker user={currentUser} />;
       default:
-        return <Home userId={currentUser.id} userName={currentUser.name} setActiveView={setActiveView} />;
+        return <Home user={currentUser} setActiveView={setActiveView} />;
     }
   };
 
@@ -146,7 +146,7 @@ function App() {
 }
 
 // Componente de Home/Dashboard
-function Home({ userId, userName, setActiveView }) {
+function Home({ user, setActiveView }) {
   const [nextCycleDays, setNextCycleDays] = useState(null);
   const [lastMomentDays, setLastMomentDays] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -156,11 +156,13 @@ function Home({ userId, userName, setActiveView }) {
       try {
         setIsLoading(true);
         // Cargar últimos ciclos
-        const cyclesRes = await getCycles(userId, 1);
+        const cyclesRes = await getCycles(user.couple_id, 1);
+        const settingsRes = await getCycleSettings(user.couple_id);
+        
         if (cyclesRes.success && cyclesRes.data.length > 0) {
           const lastCycle = cyclesRes.data[0];
-          // Asumir ciclo de 28 días por defecto si no hay cycle_length
-          const cycleLength = lastCycle.cycle_length || 28;
+          // Usar cycle_duration de la configuración global, o 28 por defecto
+          const cycleLength = (settingsRes.success && settingsRes.data?.cycle_duration) ? settingsRes.data.cycle_duration : 28;
           const startDate = new Date(lastCycle.start_date);
           const nextCycleDate = new Date(startDate);
           nextCycleDate.setDate(startDate.getDate() + cycleLength);
@@ -175,7 +177,7 @@ function Home({ userId, userName, setActiveView }) {
         }
 
         // Cargar últimos momentos íntimos
-        const momentsRes = await getIntimateMoments(1);
+        const momentsRes = await getIntimateMoments(user.couple_id, 1);
         if (momentsRes.success && momentsRes.data.length > 0) {
           const lastMoment = momentsRes.data[0];
           const momentDate = new Date(lastMoment.moment_date);
@@ -197,10 +199,10 @@ function Home({ userId, userName, setActiveView }) {
       }
     }
     
-    if (userId) {
+    if (user && user.id) {
       loadDashboardData();
     }
-  }, [userId]);
+  }, [user]);
 
   const renderCycleInfo = () => {
     if (isLoading) return "Cargando...";
@@ -231,8 +233,10 @@ function Home({ userId, userName, setActiveView }) {
   return (
     <div className="home-view">
       <div className="welcome-card">
-        <h2>¡Hola {userName}! 💕</h2>
-        <p className="welcome-subtitle">Bienvenida a nuestra app privada</p>
+        <h2>¡Hola {user.name}! 💕</h2>
+        <p className="welcome-subtitle">
+          Bienvenid{user.gender === 'hombre' ? 'o' : 'a'} a nuestra app privada
+        </p>
       </div>
 
       <div className="quick-stats">

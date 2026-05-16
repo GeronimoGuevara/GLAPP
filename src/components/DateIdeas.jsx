@@ -3,7 +3,7 @@ import { Plus, Heart, Filter, Star } from 'lucide-react';
 import { defaultDateIdeas } from '../data/hardcodedIdeas';
 import { getCustomDateIdeas, addCustomDateIdea, toggleFavorite, getFavorites } from '../lib/database';
 
-export default function DateIdeas({ userId }) {
+export default function DateIdeas({ user }) {
   const [customIdeas, setCustomIdeas] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -23,14 +23,14 @@ export default function DateIdeas({ userId }) {
   }, []);
 
   const loadCustomIdeas = async () => {
-    const result = await getCustomDateIdeas();
+    const result = await getCustomDateIdeas(user.couple_id);
     if (result.success) {
       setCustomIdeas(result.data);
     }
   };
 
   const loadFavorites = async () => {
-    const result = await getFavorites(userId);
+    const result = await getFavorites(user.id);
     if (result.success) {
       setFavorites(result.data);
     }
@@ -38,7 +38,7 @@ export default function DateIdeas({ userId }) {
 
   const handleAddIdea = async (e) => {
     e.preventDefault();
-    const result = await addCustomDateIdea(userId, newIdea);
+    const result = await addCustomDateIdea(user.id, newIdea);
     
     if (result.success) {
       setCustomIdeas([result.data[0], ...customIdeas]);
@@ -54,7 +54,7 @@ export default function DateIdeas({ userId }) {
   };
 
   const handleToggleFavorite = async (ideaId, isCustom) => {
-    await toggleFavorite(userId, 'date', ideaId, isCustom);
+    await toggleFavorite(user.id, 'date', ideaId, isCustom);
     loadFavorites();
   };
 

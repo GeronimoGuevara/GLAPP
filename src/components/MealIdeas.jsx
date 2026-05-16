@@ -3,7 +3,7 @@ import { Plus, Star, Clock, ChefHat } from 'lucide-react';
 import { defaultMealIdeas } from '../data/hardcodedIdeas';
 import { getCustomMealIdeas, addCustomMealIdea, toggleFavorite, getFavorites } from '../lib/database';
 
-export default function MealIdeas({ userId }) {
+export default function MealIdeas({ user }) {
   const [customIdeas, setCustomIdeas] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -26,7 +26,7 @@ export default function MealIdeas({ userId }) {
   }, []);
 
   const loadCustomIdeas = async () => {
-    const result = await getCustomMealIdeas();
+    const result = await getCustomMealIdeas(user.couple_id);
     if (result.success) {
       const parsed = result.data.map(idea => ({
         ...idea,
@@ -37,7 +37,7 @@ export default function MealIdeas({ userId }) {
   };
 
   const loadFavorites = async () => {
-    const result = await getFavorites(userId);
+    const result = await getFavorites(user.id);
     if (result.success) {
       setFavorites(result.data);
     }
@@ -62,7 +62,7 @@ export default function MealIdeas({ userId }) {
 
   const handleAddIdea = async (e) => {
     e.preventDefault();
-    const result = await addCustomMealIdea(userId, newIdea);
+    const result = await addCustomMealIdea(user.id, newIdea);
     
     if (result.success) {
       loadCustomIdeas();
@@ -80,7 +80,7 @@ export default function MealIdeas({ userId }) {
   };
 
   const handleToggleFavorite = async (ideaId, isCustom) => {
-    await toggleFavorite(userId, 'meal', ideaId, isCustom);
+    await toggleFavorite(user.id, 'meal', ideaId, isCustom);
     loadFavorites();
   };
 
