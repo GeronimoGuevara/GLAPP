@@ -49,8 +49,12 @@ export async function initializeTables() {
   // Migración: tabla couples y columnas en users
   try {
     await sql`CREATE TABLE IF NOT EXISTS couples (id SERIAL PRIMARY KEY, created_at TIMESTAMP DEFAULT NOW())`;
+    await sql`ALTER TABLE couples ADD COLUMN IF NOT EXISTS invite_code VARCHAR(20) UNIQUE`;
+    await sql`ALTER TABLE couples ADD COLUMN IF NOT EXISTS email VARCHAR(255)`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(10) DEFAULT 'mujer'`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS couple_id INTEGER REFERENCES couples(id)`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT`;
     await sql`ALTER TABLE intimate_moments ADD COLUMN IF NOT EXISTS couple_id INTEGER REFERENCES couples(id)`;
     await sql`ALTER TABLE game_scores ADD COLUMN IF NOT EXISTS couple_id INTEGER REFERENCES couples(id)`;
 
@@ -67,6 +71,10 @@ export async function initializeTables() {
       await sql`UPDATE users SET gender = 'hombre' WHERE name ILIKE '%gero%' OR name ILIKE '%geronimo%' OR name ILIKE '%hombre%'`;
       await sql`UPDATE users SET gender = 'mujer' WHERE name ILIKE '%lucia%' OR name ILIKE '%lu%' OR name ILIKE '%mujer%' OR name ILIKE '%novia%'`;
 
+      // Actualizar emails predeterminados
+      await sql`UPDATE users SET email = 'geronimoguevaramansuino@gmail.com' WHERE name ILIKE '%gero%' OR name ILIKE '%geronimo%'`;
+      await sql`UPDATE users SET email = 'luciadanielapereyra@gmail.com' WHERE name ILIKE '%lucia%' OR name ILIKE '%lu%'`;
+
       // Actualizar tablas antiguas sin couple_id
       await sql`UPDATE intimate_moments SET couple_id = ${coupleId} WHERE couple_id IS NULL`;
       await sql`UPDATE game_scores SET couple_id = ${coupleId} WHERE couple_id IS NULL`;
@@ -79,16 +87,20 @@ export async function initializeTables() {
     // Tabla de parejas
     `CREATE TABLE IF NOT EXISTS couples (
       id SERIAL PRIMARY KEY,
+      invite_code VARCHAR(20) UNIQUE,
+      email VARCHAR(255),
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // Tabla de usuarios (ahora con couple_id y gender)
+    // Tabla de usuarios (ahora con email, couple_id, gender y avatar)
     `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
+      email VARCHAR(255) UNIQUE,
       pin VARCHAR(4) NOT NULL,
       gender VARCHAR(10) DEFAULT 'mujer',
       couple_id INTEGER REFERENCES couples(id),
+      avatar TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
@@ -157,6 +169,15 @@ export async function initializeTables() {
       player_name VARCHAR(100),
       score INTEGER,
       played_at TIMESTAMP DEFAULT NOW()
+    )`,
+
+    // Tabla de competencias entre parejas
+    `CREATE TABLE IF NOT EXISTS competitions (
+      id SERIAL PRIMARY KEY,
+      invite_code VARCHAR(20) UNIQUE,
+      couple_a_id INTEGER REFERENCES couples(id),
+      couple_b_id INTEGER REFERENCES couples(id),
+      created_at TIMESTAMP DEFAULT NOW()
     )`,
 
     // Tabla de medicamentos/pastillas
@@ -344,6 +365,8 @@ export async function getIntimateMomentsByMonth(coupleId, monthStart, monthEnd) 
     return { success: false, error: error.message, data: [] };
   }
 }
+
+
 
 export async function updateIntimateMoment(momentId, momentDate, notes = '', protection = null) {
   if (!sql) {
@@ -826,3 +849,331 @@ export async function getMedicationHistory(userId, days = 30) {
   }
 }
 
+// ----------------------------------------------------
+// Novedades para Parejas, Perfiles y Login Segurizado
+// ----------------------------------------------------
+
+export async function getUserById(id) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const result = await sql`SELECT * FROM users WHERE id = ${id}`;
+    if (result.length > 0) {
+      return { success: true, data: result[0] };
+    }
+    return { success: false, error: 'Usuario no encontrado' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getUserByEmailAndPin(email, pin) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const result = await sql`SELECT * FROM users WHERE email ILIKE ${email} AND pin = ${pin}`;
+    if (result.length > 0) {
+      return { success: true, data: result[0] };
+    }
+    return { success: false, error: 'Email o PIN incorrectos' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function createUser(name, email, pin, gender) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const result = await sql`
+      INSERT INTO users (name, email, pin, gender) 
+      VALUES (${name}, ${email}, ${pin}, ${gender}) 
+      RETURNING *
+    `;
+    if (result.length > 0) {
+      return { success: true, data: result[0] };
+    }
+    return { success: false, error: 'No se pudo crear el usuario' };
+  } catch (error) {
+    if (error.message.includes('unique constraint')) {
+      return { success: false, error: 'Este correo electrónico ya está registrado.' };
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getPartner(coupleId, currentUserId) {
+  if (!sql || !coupleId) return { success: false, error: 'Datos insuficientes' };
+  try {
+    const result = await sql`SELECT id, name, avatar, gender FROM users WHERE couple_id = ${coupleId} AND id != ${currentUserId} LIMIT 1`;
+    if (result.length > 0) {
+      return { success: true, data: result[0] };
+    }
+    return { success: false, error: 'Pareja no encontrada' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateUserPin(userId, currentPin, newPin) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const userResult = await sql`SELECT pin FROM users WHERE id = ${userId}`;
+    if (userResult.length === 0) return { success: false, error: 'Usuario no encontrado' };
+    
+    if (userResult[0].pin !== currentPin) {
+      return { success: false, error: 'El PIN actual es incorrecto' };
+    }
+    
+    const result = await sql`UPDATE users SET pin = ${newPin} WHERE id = ${userId} RETURNING *`;
+    return { success: true, data: result[0] };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Genera un string random de n caracteres (letras mayúsculas y números)
+function generateInviteCode(length = 6) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+export async function getMonthlySummary(coupleId, year, month) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const padMonth = month.toString().padStart(2, '0');
+    const prefix = `${year}-${padMonth}`;
+    
+    // Actividad íntima
+    const intimate = await sql`
+      SELECT COUNT(*) as count 
+      FROM intimate_moments 
+      WHERE couple_id = ${coupleId} 
+      AND TO_CHAR(moment_date, 'YYYY-MM') = ${prefix}
+    `;
+    
+    // Juegos (Memoria Emoji) mejor puntaje por jugador en el mes
+    const games = await sql`
+      SELECT player_name, MIN(score) as best_score
+      FROM game_scores
+      WHERE couple_id = ${coupleId}
+      AND game_name = 'Memoria Emoji'
+      AND TO_CHAR(played_at, 'YYYY-MM') = ${prefix}
+      GROUP BY player_name
+      ORDER BY best_score ASC
+    `;
+
+    // Obtener competencias de ligas (vs otras parejas) y sus resultados del mes
+    const activeComps = await sql`
+      SELECT * FROM competitions WHERE couple_a_id = ${coupleId} OR couple_b_id = ${coupleId}
+    `;
+
+    const leaguesData = [];
+    
+    for (const comp of activeComps) {
+      if (!comp.couple_b_id) continue; // Si nadie se unió, no hay liga aún
+      
+      const opponentId = comp.couple_a_id === coupleId ? comp.couple_b_id : comp.couple_a_id;
+      
+      // Obtener mejor score global de nuestra pareja
+      const myCoupleBest = await sql`
+        SELECT MIN(score) as best FROM game_scores 
+        WHERE couple_id = ${coupleId} AND game_name = 'Memoria Emoji' AND TO_CHAR(played_at, 'YYYY-MM') = ${prefix}
+      `;
+      
+      // Obtener mejor score global de pareja rival
+      const opponentBest = await sql`
+        SELECT MIN(score) as best FROM game_scores 
+        WHERE couple_id = ${opponentId} AND game_name = 'Memoria Emoji' AND TO_CHAR(played_at, 'YYYY-MM') = ${prefix}
+      `;
+
+      // Obtener nombres de la pareja rival
+      const opponentUsers = await sql`SELECT array_agg(name) as names FROM users WHERE couple_id = ${opponentId}`;
+      
+      leaguesData.push({
+        opponentNames: opponentUsers[0]?.names?.join(' & ') || 'Pareja Rival',
+        myBest: myCoupleBest[0]?.best || null,
+        opponentBest: opponentBest[0]?.best || null,
+        invite_code: comp.invite_code
+      });
+    }
+    
+    return { 
+      success: true, 
+      data: {
+        intimateCount: parseInt(intimate[0]?.count || 0),
+        memoryGame: games, // array of {player_name, best_score} ordered by best_score asc
+        leagues: leaguesData
+      } 
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function createCouple(email) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  // Intentamos crear hasta tener un invite_code único (muy raro colisionar con 6 caracteres, pero por seguridad)
+  for (let attempts = 0; attempts < 3; attempts++) {
+    const code = generateInviteCode(6);
+    try {
+      const result = await sql`
+        INSERT INTO couples (invite_code, email)
+        VALUES (${code}, ${email || null})
+        RETURNING *
+      `;
+      if (result.length > 0) {
+        return { success: true, data: result[0] };
+      }
+    } catch (e) {
+      if (!e.message.includes('unique constraint')) {
+        return { success: false, error: e.message };
+      }
+    }
+  }
+  return { success: false, error: 'No se pudo generar un código único para la pareja' };
+}
+
+export async function updateUserCouple(userId, coupleId) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const result = await sql`
+      UPDATE users 
+      SET couple_id = ${coupleId} 
+      WHERE id = ${userId} 
+      RETURNING *
+    `;
+    if (result.length > 0) {
+      return { success: true, data: result[0] };
+    }
+    return { success: false, error: 'No se pudo vincular a la pareja' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getCoupleByInviteCode(inviteCode) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    // Buscar la pareja
+    const coupleResult = await sql`SELECT * FROM couples WHERE invite_code = ${inviteCode.toUpperCase()}`;
+    
+    if (coupleResult.length === 0) {
+      return { success: false, error: 'Código de invitación inválido o no existe.' };
+    }
+    
+    const couple = coupleResult[0];
+    
+    // Buscar a los miembros actuales de esta pareja
+    const usersResult = await sql`SELECT name FROM users WHERE couple_id = ${couple.id}`;
+    
+    const partnerName = usersResult.length > 0 
+                        ? usersResult[0].name 
+                        : 'Alguien';
+                        
+    return { success: true, data: { coupleId: couple.id, partnerName } };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateUserAvatar(userId, avatarBase64) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const result = await sql`
+      UPDATE users 
+      SET avatar = ${avatarBase64} 
+      WHERE id = ${userId} 
+      RETURNING *
+    `;
+    if (result.length > 0) {
+      return { success: true, data: result[0] };
+    }
+    return { success: false, error: 'No se pudo actualizar la foto de perfil' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ==========================================
+// NUEVAS FUNCIONES PARA JUEGOS Y COMPETENCIAS
+// ==========================================
+
+export async function saveGameScore(coupleId, gameName, playerName, score) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const result = await sql`
+      INSERT INTO game_scores (couple_id, game_name, player_name, score)
+      VALUES (${coupleId}, ${gameName}, ${playerName}, ${score})
+      RETURNING *
+    `;
+    return { success: true, data: result[0] };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function createCompetition(coupleId) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    // Generar un código aleatorio de 6 letras/números
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    const result = await sql`
+      INSERT INTO competitions (invite_code, couple_a_id) 
+      VALUES (${inviteCode}, ${coupleId}) 
+      RETURNING *
+    `;
+    return { success: true, data: result[0] };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function joinCompetition(coupleId, inviteCode) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const compResult = await sql`SELECT * FROM competitions WHERE invite_code = ${inviteCode.toUpperCase()}`;
+    if (compResult.length === 0) {
+      return { success: false, error: 'Código de competencia inválido' };
+    }
+    
+    const comp = compResult[0];
+    if (comp.couple_b_id) {
+      return { success: false, error: 'Esta competencia ya está llena' };
+    }
+    
+    if (comp.couple_a_id === coupleId) {
+      return { success: false, error: 'No puedes unirte a tu propia competencia' };
+    }
+    
+    const updateResult = await sql`
+      UPDATE competitions 
+      SET couple_b_id = ${coupleId} 
+      WHERE id = ${comp.id} 
+      RETURNING *
+    `;
+    return { success: true, data: updateResult[0] };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getCompetitions(coupleId) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const comps = await sql`
+      SELECT c.*, 
+             (SELECT array_agg(u.name) FROM users u WHERE u.couple_id = c.couple_a_id) as couple_a_names,
+             (SELECT array_agg(u.name) FROM users u WHERE u.couple_id = c.couple_b_id) as couple_b_names
+      FROM competitions c
+      WHERE c.couple_a_id = ${coupleId} OR c.couple_b_id = ${coupleId}
+      ORDER BY c.created_at DESC
+    `;
+    
+    return { success: true, data: comps };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}

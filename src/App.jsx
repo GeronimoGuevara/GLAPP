@@ -7,18 +7,31 @@ import DateIdeas from './components/DateIdeas';
 import MealIdeas from './components/MealIdeas';
 import Games from './components/Games';
 import MedicationTracker from './components/MedicationTracker';
+import MonthlySummaryModal from './components/MonthlySummaryModal';
 import './styles/App.css';
 import { Toaster } from 'react-hot-toast';
 import { initializeTables, getCycles, getIntimateMoments, getCycleSettings } from './lib/database';
+import ProfileModal from './components/ProfileModal';
 
 
 function App() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('currentUser');
+      return savedUser && savedUser !== 'undefined' ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      console.error("Error parsing currentUser from localStorage", e);
+      localStorage.removeItem('currentUser');
+      return null;
+    }
+  });
   const [activeView, setActiveView] = useState('home');
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [showMonthlySummary, setShowMonthlySummary] = useState(false);
+  const [summaryDate, setSummaryDate] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
 
   // Verificar si hay usuario guardado en localStorage
-    useEffect(() => {
-    // Esto se ejecuta una sola vez cuando la app carga por primera vez
+  useEffect(() => {
     const initDb = async () => {
       try {
         console.log("Iniciando creación de tablas...");
@@ -34,8 +47,50 @@ function App() {
     };
 
     initDb();
-  }, []); // Los corchetes vacíos aseguran que solo se ejecute 1 vez
 
+    // Check for monthly summary
+    if (currentUser && currentUser.couple_id) {
+      const today = new Date();
+      const currentMonthStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+      const lastSeenSummary = localStorage.getItem(`lastSeenSummary_${currentUser.couple_id}`);
+
+      if (lastSeenSummary !== currentMonthStr) {
+        let prevMonth = today.getMonth();
+        let prevYear = today.getFullYear();
+        if (prevMonth === 0) {
+          prevMonth = 12;
+          prevYear -= 1;
+        } else {
+          prevMonth = prevMonth; 
+        }
+        
+        setSummaryDate({ year: prevYear, month: prevMonth });
+        setShowMonthlySummary(true);
+      }
+    }
+  }, [currentUser]);
+
+  const handleCloseMonthlySummary = () => {
+    if (currentUser && currentUser.couple_id) {
+      const today = new Date();
+      const currentMonthStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+      localStorage.setItem(`lastSeenSummary_${currentUser.couple_id}`, currentMonthStr);
+    }
+    setShowMonthlySummary(false);
+  };
+
+  const handleShowPreviousMonthSummary = () => {
+    const today = new Date();
+    let prevMonth = today.getMonth();
+    let prevYear = today.getFullYear();
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear -= 1;
+    }
+    setSummaryDate({ year: prevYear, month: prevMonth });
+    setShowMonthlySummary(true);
+    setIsProfileOpen(false); // Cerramos el perfil para que no tape
+  };
 
   const handleLogin = (user) => {
     setCurrentUser(user);
@@ -48,12 +103,15 @@ function App() {
     setActiveView('home');
   };
 
-  // Si no está logueado, mostrar pantalla de login
+  const handleUserUpdate = (updatedUser) => {
+    setCurrentUser(updatedUser);
+    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+  };
+
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Renderizar la vista activa
   const renderView = () => {
     switch (activeView) {
       case 'cycle':
@@ -81,10 +139,44 @@ function App() {
           <Heart className="header-icon" />
           <h1>Nuestros Momentos</h1>
         </div>
-        <button className="logout-btn" onClick={handleLogout}>
-          Salir
-        </button>
+        
+        {currentUser && (
+          <div className="header-user-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div 
+              className="avatar-container" 
+              onClick={() => setIsProfileOpen(true)}
+              style={{ cursor: 'pointer' }}
+            >
+              {currentUser.avatar ? (
+                <img src={currentUser.avatar} alt="Avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white' }} />
+              ) : (
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.2rem', border: '2px solid white' }}>
+                  {currentUser.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </header>
+
+      {isProfileOpen && currentUser && (
+        <ProfileModal 
+          user={currentUser} 
+          onClose={() => setIsProfileOpen(false)} 
+          onLogout={handleLogout}
+          onUserUpdate={handleUserUpdate}
+          onShowSummary={handleShowPreviousMonthSummary}
+        />
+      )}
+
+      {showMonthlySummary && (
+        <MonthlySummaryModal
+          user={currentUser}
+          year={summaryDate.year}
+          month={summaryDate.month}
+          onClose={handleCloseMonthlySummary}
+        />
+      )}
 
       <main className="app-main">
         {renderView()}
@@ -145,7 +237,6 @@ function App() {
   );
 }
 
-// Componente de Home/Dashboard
 function Home({ user, setActiveView }) {
   const [nextCycleDays, setNextCycleDays] = useState(null);
   const [lastMomentDays, setLastMomentDays] = useState(null);
@@ -155,13 +246,11 @@ function Home({ user, setActiveView }) {
     async function loadDashboardData() {
       try {
         setIsLoading(true);
-        // Cargar últimos ciclos
         const cyclesRes = await getCycles(user.couple_id, 1);
         const settingsRes = await getCycleSettings(user.couple_id);
         
         if (cyclesRes.success && cyclesRes.data.length > 0) {
           const lastCycle = cyclesRes.data[0];
-          // Usar cycle_duration de la configuración global, o 28 por defecto
           const cycleLength = (settingsRes.success && settingsRes.data?.cycle_duration) ? settingsRes.data.cycle_duration : 28;
           const startDate = new Date(lastCycle.start_date);
           const nextCycleDate = new Date(startDate);
@@ -176,7 +265,6 @@ function Home({ user, setActiveView }) {
           setNextCycleDays('No hay registro');
         }
 
-        // Cargar últimos momentos íntimos
         const momentsRes = await getIntimateMoments(user.couple_id, 1);
         if (momentsRes.success && momentsRes.data.length > 0) {
           const lastMoment = momentsRes.data[0];

@@ -20,15 +20,19 @@ async function initDB() {
   const tables = [
     `CREATE TABLE IF NOT EXISTS couples (
       id SERIAL PRIMARY KEY,
+      invite_code VARCHAR(20) UNIQUE,
+      email VARCHAR(255),
       created_at TIMESTAMP DEFAULT NOW()
     )`,
     
     `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
+      email VARCHAR(255) UNIQUE,
       pin VARCHAR(4) NOT NULL,
       gender VARCHAR(10) DEFAULT 'mujer',
       couple_id INTEGER REFERENCES couples(id),
+      avatar TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
     
@@ -90,6 +94,14 @@ async function initDB() {
       player_name VARCHAR(100),
       score INTEGER,
       played_at TIMESTAMP DEFAULT NOW()
+    )`,
+    
+    `CREATE TABLE IF NOT EXISTS competitions (
+      id SERIAL PRIMARY KEY,
+      invite_code VARCHAR(20) UNIQUE,
+      couple_a_id INTEGER REFERENCES couples(id),
+      couple_b_id INTEGER REFERENCES couples(id),
+      created_at TIMESTAMP DEFAULT NOW()
     )`,
     
     `CREATE TABLE IF NOT EXISTS medications (
