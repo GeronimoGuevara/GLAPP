@@ -1,19 +1,54 @@
-import postgres from 'postgres';
-
-// IMPORTANTE: Reemplaza esto con tu connection string de Neon
-// Lo puedes obtener desde tu dashboard de Neon
+// URL de la base de datos (solo la comprobamos para ver si hay backend configurado)
 const DATABASE_URL = import.meta.env.VITE_DATABASE_URL || '';
 
 if (!DATABASE_URL) {
   console.warn('⚠️ DATABASE_URL no configurada. La app funcionará en modo offline.');
 }
 
-// Crear cliente SQL
-export const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require' }) : null;
+// Función principal de sql para tagged template literals
+export async function sql(strings, ...values) {
+  if (!DATABASE_URL) throw new Error('Database no configurada');
+
+  let query = strings[0];
+  for (let i = 1; i < strings.length; i++) {
+    query += `$${i}` + strings[i];
+  }
+  
+  const response = await fetch('/api/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, params: values })
+  });
+  
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Unknown query error');
+  }
+  
+  return data.result;
+}
+
+// Para queries crudos sin tagged templates
+sql.unsafe = async function(query, params = []) {
+  if (!DATABASE_URL) throw new Error('Database no configurada');
+
+  const response = await fetch('/api/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, params })
+  });
+  
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Unknown query error');
+  }
+  
+  return data.result;
+}
 
 // Helper para ejecutar queries de forma segura
 export async function executeQuery(query, params = []) {
-  if (!sql) {
+  if (!DATABASE_URL) {
     console.warn('Database no disponible - trabajando en modo offline');
     return { success: false, error: 'Database no configurada' };
   }
