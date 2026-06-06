@@ -6,7 +6,7 @@ console.log('Intentando conectar con la base de datos...');
 
 const envPath = path.resolve(process.cwd(), '.env');
 const envFile = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
-const match = envFile.match(/VITE_DATABASE_URL=(.*)/);
+const match = envFile.match(/^VITE_DATABASE_URL=(.*)/m);
 
 if (!match) {
   console.error('❌ Error: No se encontró la variable VITE_DATABASE_URL en el archivo .env');
