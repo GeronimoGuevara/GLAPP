@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 
 // IMPORTANTE: Reemplaza esto con tu connection string de Neon
 // Lo puedes obtener desde tu dashboard de Neon
@@ -9,7 +9,7 @@ if (!DATABASE_URL) {
 }
 
 // Crear cliente SQL
-export const sql = DATABASE_URL ? neon(DATABASE_URL) : null;
+export const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require' }) : null;
 
 // Helper para ejecutar queries de forma segura
 export async function executeQuery(query, params = []) {
@@ -19,7 +19,7 @@ export async function executeQuery(query, params = []) {
   }
 
   try {
-    const result = await sql(query, params);
+    const result = await sql.unsafe(query, params);
     return { success: true, data: result };
   } catch (error) {
     console.error('Error en query:', error);
@@ -241,7 +241,7 @@ export async function initializeTables() {
 
   try {
     for (const tableQuery of tables) {
-      await sql(tableQuery);
+      await sql.unsafe(tableQuery);
     }
     console.log('✅ Tablas inicializadas correctamente');
     return { success: true };

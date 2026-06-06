@@ -42,7 +42,7 @@ npm install
 ### 3. Configurar Base de Datos Neon
 
 #### a) Crear cuenta en Neon
-1. Ve a [neon.tech](https://neon.tech)
+1. Ve a [supabase.com](https://supabase.com/)
 2. Crea una cuenta gratis
 3. Crea un nuevo proyecto
 
@@ -50,7 +50,7 @@ npm install
 1. En tu proyecto de Neon, ve a "Connection Details"
 2. Copia el "Connection String" (debería verse así):
    ```
-   postgresql://usuario:contraseña@ep-algo-123.us-east-1.aws.neon.tech/neondb?sslmode=require
+   postgresql://postgres.[tu_id]:[contraseña]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require
    ```
 
 #### c) Configurar variables de entorno

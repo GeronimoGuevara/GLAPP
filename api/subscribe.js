@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 
 export default async function handler(req, res) {
   // CORS check (Vercel automatically handles some, but good to be safe)
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Database URL not configured' });
     }
 
-    const sql = neon(DATABASE_URL);
+    const sql = postgres(DATABASE_URL, { ssl: 'require' });
 
     // Verificar si la tabla push_subscriptions existe, si no crearla
     try {

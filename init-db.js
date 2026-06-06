@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 import fs from 'fs';
 import path from 'path';
 
@@ -14,7 +14,7 @@ if (!match) {
 }
 
 const DATABASE_URL = match[1].trim().replace(/^["']|["']$/g, '');
-const sql = neon(DATABASE_URL);
+const sql = postgres(DATABASE_URL, { ssl: 'require' });
 
 async function initDB() {
   const tables = [
@@ -160,7 +160,7 @@ async function initDB() {
     console.log('✅ Conexión establecida. Creando tablas...');
     for (const ddlText of tables) {
       // Ejecutar cada DDL por separado usando la API de plain queries
-      await sql(ddlText);
+      await sql.unsafe(ddlText);
     }
     console.log('🎉 ¡Todas las tablas se crearon correctamente!');
   } catch (err) {

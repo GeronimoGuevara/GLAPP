@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 import webpush from 'web-push';
 
 export default async function handler(req, res) {
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Database URL not configured' });
     }
 
-    const sql = neon(DATABASE_URL);
+    const sql = postgres(DATABASE_URL, { ssl: 'require' });
 
     // Buscar las subscripciones del usuario
     const subs = await sql`

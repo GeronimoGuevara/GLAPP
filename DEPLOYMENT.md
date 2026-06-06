@@ -3,7 +3,7 @@
 ## Paso 1: Configurar Neon (Base de Datos)
 
 ### 1.1 Crear cuenta y proyecto
-1. Ve a [https://neon.tech](https://neon.tech)
+1. Ve a [https://supabase.com/](https://supabase.com/)
 2. Crea una cuenta gratis (con GitHub o email)
 3. Haz clic en "Create Project"
 4. Nombra tu proyecto: "our-moments" o como quieras

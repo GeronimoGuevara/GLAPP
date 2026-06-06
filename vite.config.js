@@ -50,10 +50,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,jpeg}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.neon\.tech\/.*/i,
+            urlPattern: /^https:\/\/.*\.supabase\.(co|com)\/.*/i,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'neon-api-cache',
+              cacheName: 'supabase-api-cache',
               expiration: {
                 maxEntries: 10,
                 maxAgeSeconds: 300

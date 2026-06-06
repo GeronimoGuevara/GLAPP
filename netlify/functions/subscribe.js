@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 
 export const handler = async (event, context) => {
   // Configurar CORS
@@ -40,7 +40,7 @@ export const handler = async (event, context) => {
       };
     }
 
-    const sql = neon(DATABASE_URL);
+    const sql = postgres(DATABASE_URL, { ssl: 'require' });
 
     // Verificar si la tabla push_subscriptions existe, si no crearla
     try {

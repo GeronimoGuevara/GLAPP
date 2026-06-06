@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 import webpush from 'web-push';
 import { schedule } from '@netlify/functions';
 
@@ -28,7 +28,7 @@ const myHandler = async (event, context) => {
       return { statusCode: 500, body: 'Missing Database URL' };
     }
 
-    const sql = neon(DATABASE_URL);
+    const sql = postgres(DATABASE_URL, { ssl: 'require' });
 
     // Obtener la hora actual usando Intl.DateTimeFormat para evitar bugs de Zona Horaria en Servidores UTC
     const now = new Date();
