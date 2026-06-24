@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User, X, Camera, Lock, LogOut, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getPartner, updateUserPin, updateUserAvatar } from '../lib/database';
+import { getPartner, updateUserPassword, updateUserAvatar } from '../lib/database';
 import { uploadImageToCloudinary } from '../lib/cloudinary';
 
 export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, onShowSummary }) {
@@ -9,12 +9,12 @@ export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, on
   const [isLoadingPartner, setIsLoadingPartner] = useState(true);
   
   // States for PIN change
-  const [isChangingPin, setIsChangingPin] = useState(false);
-  const [currentPin, setCurrentPin] = useState('');
-  const [newPin, setNewPin] = useState('');
-  const [pinError, setPinError] = useState('');
-  const [pinSuccess, setPinSuccess] = useState('');
-  const [isSavingPin, setIsSavingPin] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   useEffect(() => {
     async function fetchPartner() {
@@ -83,31 +83,31 @@ export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, on
     reader.readAsDataURL(file);
   };
 
-  const handlePinChangeSubmit = async (e) => {
+  const handlePasswordChangeSubmit = async (e) => {
     e.preventDefault();
-    setPinError('');
-    setPinSuccess('');
+    setPasswordError('');
+    setPasswordSuccess('');
     
-    if (currentPin.length !== 4 || newPin.length !== 4) {
-      setPinError('Ambos PINs deben tener 4 dígitos');
+    if (newPassword.length < 6) {
+      setPasswordError('La nueva contraseña debe tener al menos 6 caracteres');
       return;
     }
     
-    setIsSavingPin(true);
-    const res = await updateUserPin(user.id, currentPin, newPin);
-    setIsSavingPin(false);
+    setIsSavingPassword(true);
+    const res = await updateUserPassword(user.id, currentPassword, newPassword);
+    setIsSavingPassword(false);
     
     if (res.success) {
-      setPinSuccess('PIN actualizado correctamente');
-      setCurrentPin('');
-      setNewPin('');
+      setPasswordSuccess('Contraseña actualizada correctamente');
+      setCurrentPassword('');
+      setNewPassword('');
       setTimeout(() => {
-        setIsChangingPin(false);
-        setPinSuccess('');
+        setIsChangingPassword(false);
+        setPasswordSuccess('');
       }, 2000);
       onUserUpdate(res.data);
     } else {
-      setPinError(res.error || 'Error al cambiar PIN');
+      setPasswordError(res.error || 'Error al cambiar contraseña');
     }
   };
 
@@ -175,17 +175,17 @@ export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, on
 
           {/* Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {isChangingPin ? (
+            {isChangingPassword ? (
               <div style={{ background: 'var(--background)', borderRadius: '16px', padding: '1rem', marginBottom: '0.5rem' }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text)' }}>Cambiar PIN</h3>
-                <form onSubmit={handlePinChangeSubmit}>
+                <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text)' }}>Cambiar Contraseña</h3>
+                <form onSubmit={handlePasswordChangeSubmit}>
                   <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '0.25rem' }}>PIN Actual</label>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '0.25rem' }}>Contraseña Actual</label>
                     <input 
                       type="password" 
-                      maxLength="4"
-                      value={currentPin}
-                      onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))}
+                      minLength="6"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value.replace(/\D/g, ''))}
                       style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1.2rem', textAlign: 'center', letterSpacing: '0.5rem' }}
                       required
                     />
@@ -194,32 +194,32 @@ export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, on
                     <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '0.25rem' }}>Nuevo PIN</label>
                     <input 
                       type="password" 
-                      maxLength="4"
-                      value={newPin}
-                      onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                      minLength="6"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value.replace(/\D/g, ''))}
                       style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1.2rem', textAlign: 'center', letterSpacing: '0.5rem' }}
                       required
                     />
                   </div>
                   
-                  {pinError && <p style={{ color: 'var(--error)', fontSize: '0.85rem', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><AlertCircle size={14}/> {pinError}</p>}
-                  {pinSuccess && <p style={{ color: 'var(--success)', fontSize: '0.85rem', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><CheckCircle size={14}/> {pinSuccess}</p>}
+                  {passwordError && <p style={{ color: 'var(--error)', fontSize: '0.85rem', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><AlertCircle size={14}/> {passwordError}</p>}
+                  {passwordSuccess && <p style={{ color: 'var(--success)', fontSize: '0.85rem', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><CheckCircle size={14}/> {passwordSuccess}</p>}
                   
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button type="button" onClick={() => { setIsChangingPin(false); setPinError(''); setCurrentPin(''); setNewPin(''); }} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontWeight: '500' }}>Cancelar</button>
-                    <button type="submit" disabled={isSavingPin} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>{isSavingPin ? 'Guardando...' : 'Guardar'}</button>
+                    <button type="button" onClick={() => { setIsChangingPassword(false); setPasswordError(''); setCurrentPassword(''); setNewPassword(''); }} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontWeight: '500' }}>Cancelar</button>
+                    <button type="submit" disabled={isSavingPassword} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>{isSavingPassword ? 'Guardando...' : 'Guardar'}</button>
                   </div>
                 </form>
               </div>
             ) : (
               <button 
-                onClick={() => setIsChangingPin(true)}
+                onClick={() => setIsChangingPassword(true)}
                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', borderRadius: '12px', border: '2px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', color: 'var(--text)', fontWeight: '500', transition: 'all 0.2s' }}
               >
                 <div style={{ background: 'var(--background)', padding: '0.5rem', borderRadius: '50%', color: 'var(--primary)' }}>
                   <Lock size={20} />
                 </div>
-                Cambiar PIN de seguridad
+                Cambiar Contraseña de seguridad
               </button>
             )}
 

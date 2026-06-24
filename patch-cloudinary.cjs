@@ -1,4 +1,6 @@
-// Utilidades para Cloudinary y Encriptación (E2EE)
+const fs = require('fs');
+
+const content = `// Utilidades para Cloudinary y Encriptación (E2EE)
 
 export async function uploadImageToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -12,7 +14,7 @@ export async function uploadImageToCloudinary(file) {
   formData.append('file', file);
   formData.append('upload_preset', uploadPreset);
 
-  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+  const response = await fetch(\`https://api.cloudinary.com/v1_1/\${cloudName}/auto/upload\`, {
     method: 'POST',
     body: formData
   });
@@ -124,3 +126,6 @@ export async function uploadEncryptedImage(file, encryptionKey) {
     throw error;
   }
 }
+`;
+
+fs.writeFileSync('src/lib/cloudinary.js', content);

@@ -958,22 +958,22 @@ export async function getUserByEmailAndPin(email, pin) {
   return await loginUser(email, pin);
 }
 
-export async function createUser(name, email, pin, gender) {
-  if (!sql) return { success: false, error: 'Database no configurada' };
+export async function registerUser(name, email, pin, gender) {
   try {
-    const result = await sql`
-      INSERT INTO users (name, email, pin, gender) 
-      VALUES (${name}, ${email}, ${pin}, ${gender}) 
-      RETURNING *
-    `;
-    if (result.length > 0) {
-      return { success: true, data: result[0] };
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, pin, gender })
+    });
+    
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || 'Registro fallido' };
     }
-    return { success: false, error: 'No se pudo crear el usuario' };
+    
+    localStorage.setItem('glapp_token', data.token);
+    return { success: true, data: data.user };
   } catch (error) {
-    if (error.message.includes('unique constraint')) {
-      return { success: false, error: 'Este correo electrónico ya está registrado.' };
-    }
     return { success: false, error: error.message };
   }
 }
@@ -991,38 +991,43 @@ export async function getPartner(coupleId, currentUserId) {
   }
 }
 
-export async function getPartnerPin(coupleId, currentUserId) {
+export async function getEncryptionKey(coupleId) {
   if (!sql || !coupleId) return null;
   try {
-    // Al requerir JWT, esta query es segura de ejecutar porque sabemos que el usuario
-    // actual pertenece a coupleId y tiene permiso implícito para saber el pin de su pareja
-    const result = await sql`SELECT pin FROM users WHERE couple_id = ${coupleId} AND id != ${currentUserId} LIMIT 1`;
+    const result = await sql`SELECT encryption_key FROM couples WHERE id = ${coupleId} LIMIT 1`;
     if (result.length > 0) {
-      return result[0].pin;
+      return result[0].encryption_key;
     }
     return null;
   } catch (error) {
-    console.error('Error fetching partner PIN:', error);
+    console.error('Error fetching encryption key:', error);
     return null;
   }
 }
 
-export async function updateUserPin(userId, currentPin, newPin) {
-  if (!sql) return { success: false, error: 'Database no configurada' };
+export async function updateUserPassword(userId, currentPassword, newPassword) {
   try {
-    const userResult = await sql`SELECT pin FROM users WHERE id = ${userId}`;
-    if (userResult.length === 0) return { success: false, error: 'Usuario no encontrado' };
+    const token = localStorage.getItem('glapp_token');
+    const response = await fetch('/api/update-password', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
     
-    if (userResult[0].pin !== currentPin) {
-      return { success: false, error: 'El PIN actual es incorrecto' };
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || 'Actualización fallida' };
     }
     
-    const result = await sql`UPDATE users SET pin = ${newPin} WHERE id = ${userId} RETURNING *`;
-    return { success: true, data: result[0] };
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
 }
+
 
 // Genera un string random de n caracteres (letras mayúsculas y números)
 function generateInviteCode(length = 6) {
@@ -1113,9 +1118,10 @@ export async function createCouple(email) {
   for (let attempts = 0; attempts < 3; attempts++) {
     const code = generateInviteCode(6);
     try {
+      const encryptionKey = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('');
       const result = await sql`
-        INSERT INTO couples (invite_code, email)
-        VALUES (${code}, ${email || null})
+        INSERT INTO couples (invite_code, email, encryption_key)
+        VALUES (${code}, ${email || null}, ${encryptionKey})
         RETURNING *
       `;
       if (result.length > 0) {

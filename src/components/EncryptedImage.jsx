@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { decryptImage } from '../lib/cloudinary';
 import { Lock } from 'lucide-react';
 
-export default function EncryptedImage({ url, pin, alt = 'Imagen íntima', className = '', style = {}, onClick }) {
+export default function EncryptedImage({ url, encryptionKey, alt = 'Imagen íntima', className = '', style = {}, onClick }) {
   const [src, setSrc] = useState(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,7 @@ export default function EncryptedImage({ url, pin, alt = 'Imagen íntima', class
     async function load() {
       try {
         setLoading(true);
-        const decryptedUrl = await decryptImage(url, pin);
+        const decryptedUrl = await decryptImage(url, encryptionKey);
         if (isMounted) {
           setSrc(decryptedUrl);
           setLoading(false);
@@ -37,7 +37,7 @@ export default function EncryptedImage({ url, pin, alt = 'Imagen íntima', class
     return () => {
       isMounted = false;
     };
-  }, [url, pin]);
+  }, [url, encryptionKey]);
 
   if (!url) return null;
 

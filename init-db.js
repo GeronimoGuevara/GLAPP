@@ -29,7 +29,7 @@ async function initDB() {
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
       email VARCHAR(255) UNIQUE,
-      pin VARCHAR(4) NOT NULL,
+      pin VARCHAR(100) NOT NULL,
       gender VARCHAR(10) DEFAULT 'mujer',
       couple_id INTEGER REFERENCES couples(id),
       avatar TEXT,
@@ -173,13 +173,25 @@ async function initDB() {
     )`
   ];
 
+  const migrations = [
+    `ALTER TABLE users ALTER COLUMN pin TYPE VARCHAR(100)`,
+    `ALTER TABLE couples ADD COLUMN IF NOT EXISTS encryption_key VARCHAR(100)`
+  ];
+
   try {
     console.log('✅ Conexión establecida. Creando tablas...');
     for (const ddlText of tables) {
-      // Ejecutar cada DDL por separado usando la API de plain queries
       await sql.unsafe(ddlText);
     }
-    console.log('🎉 ¡Todas las tablas se crearon correctamente!');
+    console.log('🔄 Ejecutando migraciones...');
+    for (const migration of migrations) {
+      try {
+        await sql.unsafe(migration);
+      } catch (e) {
+        console.log(`⚠️ Migración falló (puede que ya esté aplicada): ${e.message}`);
+      }
+    }
+    console.log('🎉 ¡Todas las tablas y migraciones se completaron correctamente!');
   } catch (err) {
     console.error('❌ Error al crear las tablas:', err);
   }

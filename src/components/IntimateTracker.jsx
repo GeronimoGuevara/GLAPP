@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Flame, Plus, Calendar as CalendarIcon, Edit2, Trash2, X, Camera, Image as ImageIcon } from 'lucide-react';
-import { addIntimateMoment, getIntimateMoments, updateIntimateMoment, deleteIntimateMoment, getPartnerPin } from '../lib/database';
+import { addIntimateMoment, getIntimateMoments, updateIntimateMoment, deleteIntimateMoment, getEncryptionKey } from '../lib/database';
 import { format, parseISO, differenceInDays, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -9,6 +9,7 @@ import EncryptedImage from './EncryptedImage';
 
 export default function IntimateTracker({ user }) {
   const [moments, setMoments] = useState([]);
+  const [encryptionKey, setEncryptionKey] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMoment, setEditingMoment] = useState(null);
   const [newMoment, setNewMoment] = useState({
@@ -30,7 +31,8 @@ export default function IntimateTracker({ user }) {
 
   useEffect(() => {
     loadMoments();
-  }, []);
+    getEncryptionKey(user.couple_id).then(key => setEncryptionKey(key));
+  }, [user.couple_id]);
 
   const loadMoments = async () => {
     const result = await getIntimateMoments(user.couple_id, 50);
@@ -50,8 +52,8 @@ export default function IntimateTracker({ user }) {
     try {
       if (newMoment.photoFile) {
         loadingToast = toast.loading('Obteniendo claves y encriptando foto...');
-        const partnerPin = await getPartnerPin(user.couple_id, user.id);
-        imageUrl = await uploadEncryptedImage(newMoment.photoFile, user.pin, partnerPin);
+        const encryptionKey = await getEncryptionKey(user.couple_id);
+        imageUrl = await uploadEncryptedImage(newMoment.photoFile, encryptionKey);
         toast.dismiss(loadingToast);
       }
       
@@ -90,8 +92,8 @@ export default function IntimateTracker({ user }) {
     try {
       if (editMoment.photoFile) {
         loadingToast = toast.loading('Obteniendo claves y encriptando foto...');
-        const partnerPin = await getPartnerPin(user.couple_id, user.id);
-        imageUrl = await uploadEncryptedImage(editMoment.photoFile, user.pin, partnerPin);
+        const encryptionKey = await getEncryptionKey(user.couple_id);
+        imageUrl = await uploadEncryptedImage(editMoment.photoFile, encryptionKey);
         toast.dismiss(loadingToast);
       }
       
@@ -481,7 +483,7 @@ export default function IntimateTracker({ user }) {
                         <div style={{ position: 'relative', width: '100%', marginTop: '1rem', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
                           <EncryptedImage 
                             url={moment.image_url} 
-                            pin={user.pin} 
+                            encryptionKey={encryptionKey} 
                             style={{ 
                               filter: 'blur(20px)', 
                               transform: 'scale(1.1)', 
@@ -567,7 +569,7 @@ export default function IntimateTracker({ user }) {
                   <div style={{ marginTop: '0.5rem' }}>
                     <EncryptedImage 
                       url={selectedMoment.image_url} 
-                      pin={user.pin} 
+                      encryptionKey={encryptionKey} 
                       style={{ cursor: 'pointer', maxHeight: '300px' }}
                       onClick={() => setFullscreenImage(selectedMoment.image_url)}
                     />
@@ -606,7 +608,7 @@ export default function IntimateTracker({ user }) {
           <div onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '100%', width: '100%', display: 'flex', justifyContent: 'center' }}>
             <EncryptedImage 
               url={fullscreenImage} 
-              pin={user.pin} 
+              encryptionKey={encryptionKey} 
               style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain' }}
             />
           </div>

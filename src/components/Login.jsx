@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Heart, Lock, UserPlus, Users, Link as LinkIcon, Copy, CheckCircle, ArrowRight } from 'lucide-react';
-import { getUserById, createUser, createCouple, updateUserCouple, getCoupleByInviteCode, getUserByEmailAndPin } from '../lib/database';
+import { getUserById, registerUser, createCouple, updateUserCouple, getCoupleByInviteCode, loginUser } from '../lib/database';
 import toast from 'react-hot-toast';
 
 export default function Login({ onLogin }) {
   const [mode, setMode] = useState('loading'); // loading, unlock, register, couple_setup, create_couple, join_couple, code_display
   const [error, setError] = useState('');
-  const [pin, setPin] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [registeredUserId, setRegisteredUserId] = useState(null);
   const [unlockUser, setUnlockUser] = useState(null);
@@ -47,16 +47,9 @@ export default function Login({ onLogin }) {
     checkExistingSession();
   }, []);
 
-  const handlePinInput = (digit) => {
-    if (pin.length < 4) {
-      setPin(pin + digit);
-    }
-  };
+  
 
-  const handleClear = () => {
-    setPin('');
-    setError('');
-  };
+  
 
   const handleUnlock = (e) => {
     e.preventDefault();
@@ -64,7 +57,7 @@ export default function Login({ onLogin }) {
       onLogin(unlockUser);
     } else {
       setError('PIN incorrecto. Intenta de nuevo.');
-      setPin('');
+      setPassword('');
     }
   };
 
@@ -73,22 +66,22 @@ export default function Login({ onLogin }) {
     localStorage.removeItem('glapp_token');
     setRegisteredUserId(null);
     setUnlockUser(null);
-    setPin('');
+    setPassword('');
     setError('');
     setMode('register');
   };
 
   const handleRegisterUser = async (e) => {
     e.preventDefault();
-    if (pin.length !== 4 || !name || !userEmail) {
-      setError('Completa tu nombre, email y un PIN de 4 dígitos');
+    if (!password || password.length < 6 || !name || !userEmail) {
+      setError('Completa tu nombre, email y una contraseña (mín 6 caracteres)');
       return;
     }
     
     setIsLoading(true);
     setError('');
     
-    const res = await createUser(name, userEmail, pin, gender);
+    const res = await registerUser(name, userEmail, password, gender);
     setIsLoading(false);
     
     if (res.success) {
@@ -96,7 +89,7 @@ export default function Login({ onLogin }) {
       localStorage.setItem('registeredUserId', res.data.id); // Guardar para futura sesión
       setUnlockUser(res.data);
       setMode('couple_setup');
-      setPin('');
+      setPassword('');
     } else {
       setError(res.error || 'Error al crear usuario');
     }
@@ -104,15 +97,15 @@ export default function Login({ onLogin }) {
 
   const handleLoginExisting = async (e) => {
     e.preventDefault();
-    if (pin.length !== 4 || !userEmail) {
-      setError('Completa tu email y el PIN de 4 dígitos');
+    if (!password || !userEmail) {
+      setError('Completa tu email y contraseña');
       return;
     }
     
     setIsLoading(true);
     setError('');
     
-    const res = await getUserByEmailAndPin(userEmail, pin);
+    const res = await loginUser(userEmail, password);
     setIsLoading(false);
     
     if (res.success) {
@@ -128,10 +121,10 @@ export default function Login({ onLogin }) {
         setUnlockUser(res.data);
         setMode('couple_setup');
       }
-      setPin('');
+      setPassword('');
     } else {
       setError(res.error || 'Credenciales incorrectas');
-      setPin('');
+      setPassword('');
     }
   };
 
@@ -194,36 +187,8 @@ export default function Login({ onLogin }) {
     toast.success('¡Código copiado!');
   };
 
-  const renderPinPad = () => (
-    <div className="pin-pad">
-      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-        <button key={num} type="button" className="pin-btn" onClick={() => handlePinInput(num.toString())}>
-          {num}
-        </button>
-      ))}
-      <button type="button" className="pin-btn clear" onClick={handleClear}>
-        Borrar
-      </button>
-      <button type="button" className="pin-btn" onClick={() => handlePinInput('0')}>
-        0
-      </button>
-      <button type="submit" className="pin-btn enter" disabled={pin.length !== 4 || isLoading}>
-        OK
-      </button>
-    </div>
-  );
-
-  const renderPinDots = () => (
-    <div className="pin-display">
-      <Lock size={20} />
-      <div className="pin-dots">
-        {[0, 1, 2, 3].map(i => (
-          <div key={i} className={`pin-dot ${i < pin.length ? 'filled' : ''}`} />
-        ))}
-      </div>
-    </div>
-  );
-
+  
+  
   if (mode === 'loading') {
     return (
       <div className="login-screen">
@@ -248,12 +213,12 @@ export default function Login({ onLogin }) {
                 <Heart className="login-icon" size={64} />
               )}
               <h1>Hola, {unlockUser?.name}</h1>
-              <p>Ingresa tu PIN para entrar</p>
+              <p>Ingresa tu contraseña para entrar</p>
             </div>
             <form onSubmit={handleUnlock} className="login-form">
-              {renderPinDots()}
+              <div className="form-group" style={{ marginBottom: '1rem' }}><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Tu Contraseña" required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '2px solid var(--border)', background: 'var(--background)', color: 'var(--text)', fontSize: '1rem' }} /></div>
               {error && <div className="error-message">{error}</div>}
-              {renderPinPad()}
+              <button type="submit" className="pin-btn enter" disabled={isLoading} style={{ width: '100%', marginTop: '1rem' }}>Entrar</button>
               <button 
                 type="button" 
                 onClick={handleLogoutDevice}
@@ -309,18 +274,18 @@ export default function Login({ onLogin }) {
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', textAlign: 'left', marginBottom: '0.5rem', color: 'var(--text)', fontWeight: '500' }}>Crea un PIN de 4 dígitos</label>
-                {renderPinDots()}
+                <label style={{ display: 'block', textAlign: 'left', marginBottom: '0.5rem', color: 'var(--text)', fontWeight: '500' }}>Crea una Contraseña (mín. 6 caracteres)</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Ingresa tu contraseña" required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '2px solid var(--border)', background: 'var(--background)', color: 'var(--text)', fontSize: '1rem' }} />
               </div>
               
               {error && <div className="error-message">{error}</div>}
-              {renderPinPad()}
+              <button type="submit" className="pin-btn enter" disabled={isLoading} style={{ width: '100%', marginTop: '1rem' }}>Registrarme</button>
               
               <button 
                 type="button" 
                 onClick={() => {
                   setMode('login_existing');
-                  setPin('');
+                  setPassword('');
                   setError('');
                 }}
                 style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: 'none', background: 'transparent', color: 'var(--text)', marginTop: '1rem', cursor: 'pointer', fontWeight: 'bold' }}
@@ -352,18 +317,18 @@ export default function Login({ onLogin }) {
                 />
               </div>
               <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', textAlign: 'left', marginBottom: '0.5rem', color: 'var(--text)', fontWeight: '500' }}>Tu PIN de 4 dígitos</label>
-                {renderPinDots()}
+                <label style={{ display: 'block', textAlign: 'left', marginBottom: '0.5rem', color: 'var(--text)', fontWeight: '500' }}>Tu Contraseña</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Ingresa tu contraseña" required style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '2px solid var(--border)', background: 'var(--background)', color: 'var(--text)', fontSize: '1rem' }} />
               </div>
               
               {error && <div className="error-message">{error}</div>}
-              {renderPinPad()}
+              <button type="submit" className="pin-btn enter" disabled={isLoading} style={{ width: '100%', marginTop: '1rem' }}>Entrar</button>
 
               <button 
                 type="button" 
                 onClick={() => {
                   setMode('register');
-                  setPin('');
+                  setPassword('');
                   setError('');
                 }}
                 style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: 'none', background: 'transparent', color: 'var(--text-light)', marginTop: '1rem', cursor: 'pointer' }}

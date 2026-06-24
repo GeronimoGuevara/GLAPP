@@ -11,10 +11,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-  const { email, pin } = req.body; // 'pin' is now acting as the password
+  const { name, email, pin, gender } = req.body; // 'pin' is now the password
 
-  if (!email || !pin) {
-    return res.status(400).json({ success: false, error: 'Email y contraseña son requeridos' });
+  if (!name || !email || !pin) {
+    return res.status(400).json({ success: false, error: 'Faltan campos requeridos' });
   }
 
   const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
@@ -32,33 +32,14 @@ export default async function handler(req, res) {
   }
 
   try {
+    const hash = await bcrypt.hash(pin, 10);
+
     const result = await sql.unsafe(
-      `SELECT * FROM users WHERE email ILIKE $1`, 
-      [email]
+      `INSERT INTO users (name, email, pin, gender) VALUES ($1, $2, $3, $4) RETURNING *`, 
+      [name, email, hash, gender || 'mujer']
     );
 
-    if (result.length === 0) {
-      return res.status(401).json({ success: false, error: 'Email o contraseña incorrectos' });
-    }
-
     const user = result[0];
-    const isBcrypt = user.pin.startsWith('$2a$') || user.pin.startsWith('$2b$');
-    let isValid = false;
-
-    if (isBcrypt) {
-      isValid = await bcrypt.compare(pin, user.pin);
-    } else {
-      // Auto-upgrade for legacy plaintext PINs
-      if (user.pin === pin) {
-        isValid = true;
-        const hash = await bcrypt.hash(pin, 10);
-        await sql.unsafe(`UPDATE users SET pin = $1 WHERE id = $2`, [hash, user.id]);
-      }
-    }
-
-    if (!isValid) {
-      return res.status(401).json({ success: false, error: 'Email o contraseña incorrectos' });
-    }
 
     const token = jwt.sign(
       { userId: user.id, coupleId: user.couple_id }, 
@@ -75,7 +56,10 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Register error:', error);
+    if (error.message.includes('unique constraint')) {
+      return res.status(400).json({ success: false, error: 'Este correo electrónico ya está registrado.' });
+    }
     return res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 }
