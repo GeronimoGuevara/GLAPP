@@ -217,8 +217,8 @@ export default function IntimateTracker({ user }) {
 
       {/* Estadísticas */}
       {stats && (
-        <div className="stats-cards">
-          <div className="stat-card-large intimate-stat">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+          <div className="stat-card-large intimate-stat" style={{ gridColumn: '1 / -1', margin: 0 }}>
             <Flame className="stat-icon" />
             <div className="stat-content">
               <span className="stat-label">Último momento</span>
@@ -232,19 +232,20 @@ export default function IntimateTracker({ user }) {
             </div>
           </div>
 
-          <div className="stat-card-large">
-            <CalendarIcon className="stat-icon" />
-            <div className="stat-content">
+          <div className="stat-card-large" style={{ margin: 0, padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <CalendarIcon className="stat-icon" style={{ marginBottom: '0.5rem', marginRight: 0 }} />
+            <div className="stat-content" style={{ alignItems: 'center' }}>
               <span className="stat-label">Este mes</span>
-              <span className="stat-value-large">{stats.thisMonth}</span>
-              <span className="stat-detail">Promedio: {stats.avgPerMonth}/mes</span>
+              <span className="stat-value-large" style={{ fontSize: '1.5rem' }}>{stats.thisMonth}</span>
+              <span className="stat-detail" style={{ fontSize: '0.75rem' }}>Prom: {stats.avgPerMonth}/mes</span>
             </div>
           </div>
 
-          <div className="stat-card-large">
-            <div className="stat-content">
-              <span className="stat-label">Total registrado</span>
-              <span className="stat-value-large">{stats.total}</span>
+          <div className="stat-card-large" style={{ margin: 0, padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <Flame className="stat-icon" style={{ marginBottom: '0.5rem', marginRight: 0, opacity: 0.5 }} />
+            <div className="stat-content" style={{ alignItems: 'center' }}>
+              <span className="stat-label">Total histórico</span>
+              <span className="stat-value-large" style={{ fontSize: '1.5rem' }}>{stats.total}</span>
             </div>
           </div>
         </div>
@@ -252,147 +253,161 @@ export default function IntimateTracker({ user }) {
 
       {/* Formulario para agregar momento */}
       {showAddForm && (
-        <div className="add-form-card">
-          <h3>Registrar Momento</h3>
-          <form onSubmit={handleAddMoment}>
-            <div className="form-row">
+        <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3>Registrar Momento</h3>
+              <button className="close-btn" onClick={() => setShowAddForm(false)}>
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleAddMoment}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Fecha</label>
+                  <input
+                    type="date"
+                    value={newMoment.date}
+                    onChange={(e) => setNewMoment({...newMoment, date: e.target.value})}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Hora (opcional)</label>
+                  <input
+                    type="time"
+                    value={newMoment.time}
+                    onChange={(e) => setNewMoment({...newMoment, time: e.target.value})}
+                  />
+                </div>
+              </div>
+
               <div className="form-group">
-                <label>Fecha</label>
-                <input
-                  type="date"
-                  value={newMoment.date}
-                  onChange={(e) => setNewMoment({...newMoment, date: e.target.value})}
-                  required
+                <label>Protección</label>
+                <select
+                  value={newMoment.protection}
+                  onChange={(e) => setNewMoment({...newMoment, protection: e.target.value})}
+                >
+                  <option value="none">Seleccionar...</option>
+                  <option value="with">💚 Con protección</option>
+                  <option value="without">❤️ Sin protección</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Notas privadas (opcional)</label>
+                <textarea
+                  value={newMoment.notes}
+                  onChange={(e) => setNewMoment({...newMoment, notes: e.target.value})}
+                  placeholder="Detalles que quieran recordar..."
+                  rows={3}
                 />
               </div>
 
               <div className="form-group">
-                <label>Hora (opcional)</label>
-                <input
-                  type="time"
-                  value={newMoment.time}
-                  onChange={(e) => setNewMoment({...newMoment, time: e.target.value})}
-                />
+                <label>Foto Secreta (opcional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--background)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
+                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 'bold' }}>
+                    <Camera size={20} />
+                    {newMoment.photoFile ? 'Cambiar foto' : 'Añadir foto E2EE'}
+                    <input type="file" accept="image/*" onChange={(e) => setNewMoment({...newMoment, photoFile: e.target.files[0]})} style={{ display: 'none' }} />
+                  </label>
+                  {newMoment.photoFile && <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{newMoment.photoFile.name}</span>}
+                </div>
+                <small style={{ color: 'var(--text-light)', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>La foto se encriptará en tu celular antes de subirse. Solo podrá verse con tu PIN.</small>
               </div>
-            </div>
 
-            <div className="form-group">
-              <label>Protección</label>
-              <select
-                value={newMoment.protection}
-                onChange={(e) => setNewMoment({...newMoment, protection: e.target.value})}
-              >
-                <option value="none">Seleccionar...</option>
-                <option value="with">💚 Con protección</option>
-                <option value="without">❤️ Sin protección</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Notas privadas (opcional)</label>
-              <textarea
-                value={newMoment.notes}
-                onChange={(e) => setNewMoment({...newMoment, notes: e.target.value})}
-                placeholder="Detalles que quieran recordar..."
-                rows={3}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Foto Secreta (opcional)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--background)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
-                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 'bold' }}>
-                  <Camera size={20} />
-                  {newMoment.photoFile ? 'Cambiar foto' : 'Añadir foto E2EE'}
-                  <input type="file" accept="image/*" onChange={(e) => setNewMoment({...newMoment, photoFile: e.target.files[0]})} style={{ display: 'none' }} />
-                </label>
-                {newMoment.photoFile && <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{newMoment.photoFile.name}</span>}
+              <div className="form-actions">
+                <button type="button" onClick={() => setShowAddForm(false)} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  Guardar
+                </button>
               </div>
-              <small style={{ color: 'var(--text-light)', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>La foto se encriptará en tu celular antes de subirse. Solo podrá verse con tu PIN.</small>
-            </div>
-
-            <div className="form-actions">
-              <button type="button" onClick={() => setShowAddForm(false)} className="btn-secondary">
-                Cancelar
-              </button>
-              <button type="submit" className="btn-primary">
-                Guardar
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 
       {/* Formulario para editar momento */}
       {editingMoment && (
-        <div className="add-form-card">
-          <h3>Editar Momento</h3>
-          <form onSubmit={handleEditMoment}>
-            <div className="form-row">
+        <div className="modal-overlay" onClick={() => { setEditingMoment(null); setEditMoment({ date: '', time: '', notes: '', protection: 'none' }); }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3>Editar Momento</h3>
+              <button className="close-btn" onClick={() => { setEditingMoment(null); setEditMoment({ date: '', time: '', notes: '', protection: 'none' }); }}>
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleEditMoment}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Fecha</label>
+                  <input
+                    type="date"
+                    value={editMoment.date}
+                    onChange={(e) => setEditMoment({...editMoment, date: e.target.value})}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Hora (opcional)</label>
+                  <input
+                    type="time"
+                    value={editMoment.time}
+                    onChange={(e) => setEditMoment({...editMoment, time: e.target.value})}
+                  />
+                </div>
+              </div>
+
               <div className="form-group">
-                <label>Fecha</label>
-                <input
-                  type="date"
-                  value={editMoment.date}
-                  onChange={(e) => setEditMoment({...editMoment, date: e.target.value})}
-                  required
+                <label>Protección</label>
+                <select
+                  value={editMoment.protection}
+                  onChange={(e) => setEditMoment({...editMoment, protection: e.target.value})}
+                >
+                  <option value="none">Seleccionar...</option>
+                  <option value="with">💚 Con protección</option>
+                  <option value="without">❤️ Sin protección</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Notas privadas (opcional)</label>
+                <textarea
+                  value={editMoment.notes}
+                  onChange={(e) => setEditMoment({...editMoment, notes: e.target.value})}
+                  placeholder="Detalles que quieran recordar..."
+                  rows={3}
                 />
               </div>
 
               <div className="form-group">
-                <label>Hora (opcional)</label>
-                <input
-                  type="time"
-                  value={editMoment.time}
-                  onChange={(e) => setEditMoment({...editMoment, time: e.target.value})}
-                />
+                <label>Foto Secreta (opcional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--background)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
+                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 'bold' }}>
+                    <Camera size={20} />
+                    {editMoment.photoFile ? 'Cambiar foto' : (editingMoment.image_url ? 'Actualizar foto E2EE' : 'Añadir foto E2EE')}
+                    <input type="file" accept="image/*" onChange={(e) => setEditMoment({...editMoment, photoFile: e.target.files[0]})} style={{ display: 'none' }} />
+                  </label>
+                  {editMoment.photoFile && <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{editMoment.photoFile.name}</span>}
+                </div>
+                <small style={{ color: 'var(--text-light)', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>La foto se encriptará en tu celular antes de subirse. Solo podrá verse con tu PIN.</small>
               </div>
-            </div>
 
-            <div className="form-group">
-              <label>Protección</label>
-              <select
-                value={editMoment.protection}
-                onChange={(e) => setEditMoment({...editMoment, protection: e.target.value})}
-              >
-                <option value="none">Seleccionar...</option>
-                <option value="with">💚 Con protección</option>
-                <option value="without">❤️ Sin protección</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Notas privadas (opcional)</label>
-              <textarea
-                value={editMoment.notes}
-                onChange={(e) => setEditMoment({...editMoment, notes: e.target.value})}
-                placeholder="Detalles que quieran recordar..."
-                rows={3}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Foto Secreta (opcional)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--background)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
-                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 'bold' }}>
-                  <Camera size={20} />
-                  {editMoment.photoFile ? 'Cambiar foto' : (editingMoment.image_url ? 'Actualizar foto E2EE' : 'Añadir foto E2EE')}
-                  <input type="file" accept="image/*" onChange={(e) => setEditMoment({...editMoment, photoFile: e.target.files[0]})} style={{ display: 'none' }} />
-                </label>
-                {editMoment.photoFile && <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{editMoment.photoFile.name}</span>}
+              <div className="form-actions">
+                <button type="button" onClick={() => { setEditingMoment(null); setEditMoment({ date: '', time: '', notes: '', protection: 'none' }); }} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  Guardar
+                </button>
               </div>
-              <small style={{ color: 'var(--text-light)', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>La foto se encriptará en tu celular antes de subirse. Solo podrá verse con tu PIN.</small>
-            </div>
-
-            <div className="form-actions">
-              <button type="button" onClick={() => { setEditingMoment(null); setEditMoment({ date: '', time: '', notes: '', protection: 'none' }); }} className="btn-secondary">
-                Cancelar
-              </button>
-              <button type="submit" className="btn-primary">
-                Guardar
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 
@@ -524,7 +539,7 @@ export default function IntimateTracker({ user }) {
               </button>
             </div>
             
-            <div className="moment-details" style={{ padding: '1rem 0' }}>
+            <div className="moment-details" style={{ padding: '1rem 1.5rem 2rem 1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <CalendarIcon size={18} color="var(--primary)" />
                 <span style={{ fontWeight: 'bold' }}>

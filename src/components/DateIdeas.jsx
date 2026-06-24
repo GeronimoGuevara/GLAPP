@@ -111,95 +111,102 @@ export default function DateIdeas({ user }) {
 
       {/* Formulario para agregar nueva idea */}
       {showAddForm && (
-        <div className="add-form-card">
-          <h3>Nueva Idea de Cita</h3>
-          <form onSubmit={handleAddIdea}>
-            <div className="form-group">
-              <label>Emoji</label>
-              <input
-                type="text"
-                value={newIdea.emoji}
-                onChange={(e) => setNewIdea({...newIdea, emoji: e.target.value})}
-                maxLength={2}
-                placeholder="💕"
-              />
+        <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3>Nueva Idea de Cita</h3>
+              <button className="close-btn" onClick={() => setShowAddForm(false)}>
+                <X size={24} />
+              </button>
             </div>
-
-            <div className="form-group">
-              <label>Título</label>
-              <input
-                type="text"
-                value={newIdea.title}
-                onChange={(e) => setNewIdea({...newIdea, title: e.target.value})}
-                placeholder="Ej: Noche de película bajo las estrellas"
-                required
-              />
-            </div>
-
-            <div className="form-row">
+            <form onSubmit={handleAddIdea}>
               <div className="form-group">
-                <label>Categoría</label>
-                <select
-                  value={newIdea.category}
-                  onChange={(e) => setNewIdea({...newIdea, category: e.target.value})}
-                >
-                  <option value="romántico">Romántico</option>
-                  <option value="divertido">Divertido</option>
-                  <option value="activo">Activo</option>
-                  <option value="relajado">Relajado</option>
-                  <option value="cultural">Cultural</option>
-                  <option value="creativo">Creativo</option>
-                  <option value="en casa">En casa</option>
-                  <option value="casual">Casual</option>
-                </select>
+                <label>Emoji</label>
+                <input
+                  type="text"
+                  value={newIdea.emoji}
+                  onChange={(e) => setNewIdea({...newIdea, emoji: e.target.value})}
+                  maxLength={2}
+                  placeholder="💕"
+                />
               </div>
 
               <div className="form-group">
-                <label>Dificultad</label>
-                <select
-                  value={newIdea.difficulty}
-                  onChange={(e) => setNewIdea({...newIdea, difficulty: e.target.value})}
-                >
-                  <option value="muy fácil">Muy fácil</option>
-                  <option value="fácil">Fácil</option>
-                  <option value="media">Media</option>
-                  <option value="difícil">Difícil</option>
-                </select>
+                <label>Título</label>
+                <input
+                  type="text"
+                  value={newIdea.title}
+                  onChange={(e) => setNewIdea({...newIdea, title: e.target.value})}
+                  placeholder="Ej: Noche de película bajo las estrellas"
+                  required
+                />
               </div>
-            </div>
 
-            <div className="form-group">
-              <label>Descripción</label>
-              <textarea
-                value={newIdea.description}
-                onChange={(e) => setNewIdea({...newIdea, description: e.target.value})}
-                placeholder="Describe la actividad..."
-                rows={3}
-                required
-              />
-            </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Categoría</label>
+                  <select
+                    value={newIdea.category}
+                    onChange={(e) => setNewIdea({...newIdea, category: e.target.value})}
+                  >
+                    <option value="romántico">Romántico</option>
+                    <option value="divertido">Divertido</option>
+                    <option value="activo">Activo</option>
+                    <option value="relajado">Relajado</option>
+                    <option value="cultural">Cultural</option>
+                    <option value="creativo">Creativo</option>
+                    <option value="en casa">En casa</option>
+                    <option value="casual">Casual</option>
+                  </select>
+                </div>
 
-            <div className="form-group">
-              <label>Foto (opcional)</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--background)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
-                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 'bold' }}>
-                  <Camera size={20} />
-                  {newIdea.photoFile ? 'Cambiar foto' : 'Añadir foto'}
-                  <input type="file" accept="image/*" onChange={(e) => setNewIdea({...newIdea, photoFile: e.target.files[0]})} style={{ display: 'none' }} />
-                </label>
-                {newIdea.photoFile && <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{newIdea.photoFile.name}</span>}
+                <div className="form-group">
+                  <label>Dificultad</label>
+                  <select
+                    value={newIdea.difficulty}
+                    onChange={(e) => setNewIdea({...newIdea, difficulty: e.target.value})}
+                  >
+                    <option value="muy fácil">Muy fácil</option>
+                    <option value="fácil">Fácil</option>
+                    <option value="media">Media</option>
+                    <option value="difícil">Difícil</option>
+                  </select>
+                </div>
               </div>
-            </div>
 
-            <div className="form-actions">
-              <button type="button" onClick={() => setShowAddForm(false)} className="btn-secondary">
-                Cancelar
-              </button>
-              <button type="submit" className="btn-primary">
-                Guardar Idea
-              </button>
-            </div>
-          </form>
+              <div className="form-group">
+                <label>Descripción</label>
+                <textarea
+                  value={newIdea.description}
+                  onChange={(e) => setNewIdea({...newIdea, description: e.target.value})}
+                  placeholder="Describe la actividad..."
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Foto (opcional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--background)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
+                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 'bold' }}>
+                    <Camera size={20} />
+                    {newIdea.photoFile ? 'Cambiar foto' : 'Añadir foto'}
+                    <input type="file" accept="image/*" onChange={(e) => setNewIdea({...newIdea, photoFile: e.target.files[0]})} style={{ display: 'none' }} />
+                  </label>
+                  {newIdea.photoFile && <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{newIdea.photoFile.name}</span>}
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" onClick={() => setShowAddForm(false)} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  Guardar Idea
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

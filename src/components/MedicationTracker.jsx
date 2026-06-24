@@ -259,115 +259,122 @@ export default function MedicationTracker({ user }) {
 
       {/* Formulario Agregar/Editar */}
       {showAddForm && (
-        <div className="add-form-card">
-          <h3>{editingId ? 'Editar Medicamento' : 'Nuevo Medicamento'}</h3>
-          <form onSubmit={handleSubmit}>
-            <div className="form-row">
-              <div className="form-group" style={{ flex: '0 0 80px' }}>
-                <label>Icono</label>
-                <input
-                  type="text"
-                  value={newMed.icon}
-                  onChange={(e) => setNewMed({...newMed, icon: e.target.value})}
-                  maxLength={2}
-                  className="icon-input"
-                />
-              </div>
-
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>Nombre del medicamento</label>
-                <input
-                  type="text"
-                  value={newMed.name}
-                  onChange={(e) => setNewMed({...newMed, name: e.target.value})}
-                  placeholder="Ej: Anticonceptivo, Vitamina D..."
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Dosis</label>
-                <input
-                  type="text"
-                  value={newMed.dosage}
-                  onChange={(e) => setNewMed({...newMed, dosage: e.target.value})}
-                  placeholder="Ej: 1 tableta, 5mg..."
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Frecuencia</label>
-                <select
-                  value={newMed.frequency}
-                  onChange={(e) => setNewMed({...newMed, frequency: e.target.value})}
-                >
-                  <option value="daily">Diario</option>
-                  <option value="weekly">Semanal</option>
-                  <option value="as-needed">Según necesidad</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Color</label>
-                <input
-                  type="color"
-                  value={newMed.color}
-                  onChange={(e) => setNewMed({...newMed, color: e.target.value})}
-                  className="color-input"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Horarios</label>
-              <div className="times-list">
-                {newMed.times.map((time, idx) => (
-                  <div key={idx} className="time-input-row">
-                    <input
-                      type="time"
-                      value={time}
-                      onChange={(e) => handleTimeChange(idx, e.target.value)}
-                      required
-                    />
-                    {newMed.times.length > 1 && (
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveTime(idx)}
-                        className="btn-icon-danger"
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <button type="button" onClick={handleAddTime} className="btn-secondary btn-sm">
-                <Plus size={16} /> Agregar otro horario
+        <div className="modal-overlay" onClick={resetForm}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3>{editingId ? 'Editar Medicamento' : 'Nuevo Medicamento'}</h3>
+              <button className="close-btn" onClick={resetForm}>
+                <X size={24} />
               </button>
             </div>
+            <form onSubmit={handleSubmit}>
+              <div className="form-row">
+                <div className="form-group" style={{ flex: '0 0 80px' }}>
+                  <label>Icono</label>
+                  <input
+                    type="text"
+                    value={newMed.icon}
+                    onChange={(e) => setNewMed({...newMed, icon: e.target.value})}
+                    maxLength={2}
+                    className="icon-input"
+                  />
+                </div>
 
-            <div className="form-group">
-              <label>Notas (opcional)</label>
-              <textarea
-                value={newMed.notes}
-                onChange={(e) => setNewMed({...newMed, notes: e.target.value})}
-                placeholder="Ej: Tomar con comida, después de cenar..."
-                rows={2}
-              />
-            </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>Nombre del medicamento</label>
+                  <input
+                    type="text"
+                    value={newMed.name}
+                    onChange={(e) => setNewMed({...newMed, name: e.target.value})}
+                    placeholder="Ej: Anticonceptivo, Vitamina D..."
+                    required
+                  />
+                </div>
+              </div>
 
-            <div className="form-actions">
-              <button type="button" onClick={resetForm} className="btn-secondary">
-                Cancelar
-              </button>
-              <button type="submit" className="btn-primary">
-                {editingId ? 'Actualizar' : 'Guardar'}
-              </button>
-            </div>
-          </form>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Dosis</label>
+                  <input
+                    type="text"
+                    value={newMed.dosage}
+                    onChange={(e) => setNewMed({...newMed, dosage: e.target.value})}
+                    placeholder="Ej: 1 tableta, 5mg..."
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Frecuencia</label>
+                  <select
+                    value={newMed.frequency}
+                    onChange={(e) => setNewMed({...newMed, frequency: e.target.value})}
+                  >
+                    <option value="daily">Diario</option>
+                    <option value="weekly">Semanal</option>
+                    <option value="as-needed">Según necesidad</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Color</label>
+                  <input
+                    type="color"
+                    value={newMed.color}
+                    onChange={(e) => setNewMed({...newMed, color: e.target.value})}
+                    className="color-input"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Horarios</label>
+                <div className="times-list">
+                  {newMed.times.map((time, idx) => (
+                    <div key={idx} className="time-input-row">
+                      <input
+                        type="time"
+                        value={time}
+                        onChange={(e) => handleTimeChange(idx, e.target.value)}
+                        required
+                      />
+                      {newMed.times.length > 1 && (
+                        <button 
+                          type="button" 
+                          onClick={() => handleRemoveTime(idx)}
+                          className="btn-icon-danger"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={handleAddTime} className="btn-secondary btn-sm">
+                  <Plus size={16} /> Agregar otro horario
+                </button>
+              </div>
+
+              <div className="form-group">
+                <label>Notas (opcional)</label>
+                <textarea
+                  value={newMed.notes}
+                  onChange={(e) => setNewMed({...newMed, notes: e.target.value})}
+                  placeholder="Ej: Tomar con comida, después de cenar..."
+                  rows={2}
+                />
+              </div>
+
+              <div className="form-actions">
+                <button type="button" onClick={resetForm} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  {editingId ? 'Actualizar' : 'Guardar'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

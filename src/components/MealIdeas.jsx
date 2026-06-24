@@ -110,113 +110,120 @@ export default function MealIdeas({ user }) {
       </div>
 
       {showAddForm && (
-        <div className="add-form-card">
-          <h3>Nueva Receta</h3>
-          <form onSubmit={handleAddIdea}>
-            <div className="form-group">
-              <label>Emoji</label>
-              <input
-                type="text"
-                value={newIdea.emoji}
-                onChange={(e) => setNewIdea({...newIdea, emoji: e.target.value})}
-                maxLength={2}
-                placeholder="🍽️"
-              />
+        <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3>Nueva Receta</h3>
+              <button className="close-btn" onClick={() => setShowAddForm(false)}>
+                <X size={24} />
+              </button>
             </div>
-
-            <div className="form-group">
-              <label>Nombre del plato</label>
-              <input
-                type="text"
-                value={newIdea.title}
-                onChange={(e) => setNewIdea({...newIdea, title: e.target.value})}
-                placeholder="Ej: Pasta carbonara casera"
-                required
-              />
-            </div>
-
-            <div className="form-row">
+            <form onSubmit={handleAddIdea}>
               <div className="form-group">
-                <label>Tipo</label>
-                <select
-                  value={newIdea.type}
-                  onChange={(e) => setNewIdea({...newIdea, type: e.target.value})}
-                >
-                  <option value="desayuno">Desayuno</option>
-                  <option value="almuerzo">Almuerzo</option>
-                  <option value="cena">Cena</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Dificultad</label>
-                <select
-                  value={newIdea.difficulty}
-                  onChange={(e) => setNewIdea({...newIdea, difficulty: e.target.value})}
-                >
-                  <option value="muy fácil">Muy fácil</option>
-                  <option value="fácil">Fácil</option>
-                  <option value="media">Media</option>
-                  <option value="media-alta">Media-alta</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Tiempo</label>
+                <label>Emoji</label>
                 <input
                   type="text"
-                  value={newIdea.time}
-                  onChange={(e) => setNewIdea({...newIdea, time: e.target.value})}
-                  placeholder="Ej: 30 min"
+                  value={newIdea.emoji}
+                  onChange={(e) => setNewIdea({...newIdea, emoji: e.target.value})}
+                  maxLength={2}
+                  placeholder="🍽️"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Nombre del plato</label>
+                <input
+                  type="text"
+                  value={newIdea.title}
+                  onChange={(e) => setNewIdea({...newIdea, title: e.target.value})}
+                  placeholder="Ej: Pasta carbonara casera"
                   required
                 />
               </div>
-            </div>
 
-            <div className="form-group">
-              <label>Ingredientes</label>
-              <div className="ingredient-input">
-                <input
-                  type="text"
-                  value={ingredientInput}
-                  onChange={(e) => setIngredientInput(e.target.value)}
-                  placeholder="Agregar ingrediente..."
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddIngredient())}
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Tipo</label>
+                  <select
+                    value={newIdea.type}
+                    onChange={(e) => setNewIdea({...newIdea, type: e.target.value})}
+                  >
+                    <option value="desayuno">Desayuno</option>
+                    <option value="almuerzo">Almuerzo</option>
+                    <option value="cena">Cena</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Dificultad</label>
+                  <select
+                    value={newIdea.difficulty}
+                    onChange={(e) => setNewIdea({...newIdea, difficulty: e.target.value})}
+                  >
+                    <option value="muy fácil">Muy fácil</option>
+                    <option value="fácil">Fácil</option>
+                    <option value="media">Media</option>
+                    <option value="media-alta">Media-alta</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Tiempo</label>
+                  <input
+                    type="text"
+                    value={newIdea.time}
+                    onChange={(e) => setNewIdea({...newIdea, time: e.target.value})}
+                    placeholder="Ej: 30 min"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Ingredientes</label>
+                <div className="ingredient-input">
+                  <input
+                    type="text"
+                    value={ingredientInput}
+                    onChange={(e) => setIngredientInput(e.target.value)}
+                    placeholder="Agregar ingrediente..."
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddIngredient())}
+                  />
+                  <button type="button" onClick={handleAddIngredient} className="btn-secondary">
+                    Agregar
+                  </button>
+                </div>
+                <div className="ingredients-list">
+                  {newIdea.ingredients.map((ing, idx) => (
+                    <span key={idx} className="ingredient-tag">
+                      {ing}
+                      <button type="button" onClick={() => handleRemoveIngredient(idx)}>×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Descripción</label>
+                <textarea
+                  value={newIdea.description}
+                  onChange={(e) => setNewIdea({...newIdea, description: e.target.value})}
+                  placeholder="Describe el plato..."
+                  rows={3}
+                  required
                 />
-                <button type="button" onClick={handleAddIngredient} className="btn-secondary">
-                  Agregar
+              </div>
+
+              <div className="form-actions">
+                <button type="button" onClick={() => setShowAddForm(false)} className="btn-secondary">
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  Guardar Receta
                 </button>
               </div>
-              <div className="ingredients-list">
-                {newIdea.ingredients.map((ing, idx) => (
-                  <span key={idx} className="ingredient-tag">
-                    {ing}
-                    <button type="button" onClick={() => handleRemoveIngredient(idx)}>×</button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Descripción</label>
-              <textarea
-                value={newIdea.description}
-                onChange={(e) => setNewIdea({...newIdea, description: e.target.value})}
-                placeholder="Describe el plato..."
-                rows={3}
-                required
-              />
-            </div>
-
-            <div className="form-actions">
-              <button type="button" onClick={() => setShowAddForm(false)} className="btn-secondary">
-                Cancelar
-              </button>
-              <button type="submit" className="btn-primary">
-                Guardar Receta
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 
