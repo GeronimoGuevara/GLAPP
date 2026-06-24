@@ -25,6 +25,8 @@ export default function IntimateTracker({ user }) {
     protection: 'none',
     photoFile: null
   });
+  const [selectedMoment, setSelectedMoment] = useState(null);
+  const [fullscreenImage, setFullscreenImage] = useState(null);
 
   useEffect(() => {
     loadMoments();
@@ -413,49 +415,62 @@ export default function IntimateTracker({ user }) {
                   if (!datetime) return null;
                   
                   return (
-                    <div key={moment.id} className="moment-item">
-                      <div className="moment-icon">
-                        <Flame size={20} />
-                      </div>
-                      <div className="moment-info">
-                        <span className="moment-date">
-                          {format(datetime, "EEEE d 'de' MMMM", { locale: es })}
-                        </span>
-                        <span className="moment-time">
-                          {format(datetime, 'HH:mm', { locale: es })}
-                        </span>
-                        {moment.protection && moment.protection !== 'none' && (
-                          <span className="moment-protection">
-                            {moment.protection === 'with' ? '💚 Con protección' : '❤️ Sin protección'}
+                    <div 
+                      key={moment.id} 
+                      className="moment-item" 
+                      style={{ cursor: 'pointer', flexDirection: 'column', alignItems: 'flex-start' }}
+                      onClick={() => setSelectedMoment(moment)}
+                    >
+                      <div style={{ display: 'flex', width: '100%', alignItems: 'flex-start' }}>
+                        <div className="moment-icon">
+                          <Flame size={20} />
+                        </div>
+                        <div className="moment-info">
+                          <span className="moment-date">
+                            {format(datetime, "EEEE d 'de' MMMM", { locale: es })}
                           </span>
-                        )}
-                        {moment.notes && (
-                          <p className="moment-notes">{moment.notes}</p>
-                        )}
-                        {moment.image_url && (
-                          <div style={{ marginTop: '0.75rem', maxWidth: '300px' }}>
-                            <EncryptedImage url={moment.image_url} pin={user.pin} />
-                          </div>
-                        )}
+                          <span className="moment-time">
+                            {format(datetime, 'HH:mm', { locale: es })}
+                          </span>
+                          {moment.protection && moment.protection !== 'none' && (
+                            <span className="moment-protection">
+                              {moment.protection === 'with' ? '💚 Con protección' : '❤️ Sin protección'}
+                            </span>
+                          )}
+                          {moment.notes && (
+                            <p className="moment-notes">{moment.notes.length > 50 ? moment.notes.substring(0, 50) + '...' : moment.notes}</p>
+                          )}
+                        </div>
+                        <div className="moment-actions" style={{ marginLeft: 'auto', alignSelf: 'flex-start' }}>
+                          <button 
+                            type="button" 
+                            className="icon-btn"
+                            onClick={(e) => { e.stopPropagation(); startEditing(moment); }}
+                            title="Editar"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            type="button" 
+                            className="icon-btn danger"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteMoment(moment.id); }}
+                            title="Eliminar"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
-                      <div className="moment-actions">
-                        <button 
-                          type="button" 
-                          className="icon-btn"
-                          onClick={() => startEditing(moment)}
-                          title="Editar"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button 
-                          type="button" 
-                          className="icon-btn danger"
-                          onClick={() => handleDeleteMoment(moment.id)}
-                          title="Eliminar"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                      
+                      {/* Imagen movida fuera de moment-info para que ocupe todo el ancho */}
+                      {moment.image_url && (
+                        <div style={{ width: '100%', marginTop: '0.75rem', borderRadius: '8px', overflow: 'hidden' }}>
+                          <EncryptedImage 
+                            url={moment.image_url} 
+                            pin={user.pin} 
+                            style={{ filter: 'blur(15px)', transition: 'filter 0.3s', maxHeight: '150px', cursor: 'pointer', width: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -464,6 +479,92 @@ export default function IntimateTracker({ user }) {
           ))
         )}
       </div>
+
+      {/* Modal de Detalle de Momento */}
+      {selectedMoment && (
+        <div className="modal-overlay" onClick={() => setSelectedMoment(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <h3>Detalles del Momento</h3>
+              <button className="close-btn" onClick={() => setSelectedMoment(null)}>
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="moment-details" style={{ padding: '1rem 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <CalendarIcon size={18} color="var(--primary)" />
+                <span style={{ fontWeight: 'bold' }}>
+                  {format(safeParseDate(selectedMoment.moment_date), "EEEE d 'de' MMMM 'a las' HH:mm", { locale: es })}
+                </span>
+              </div>
+              
+              {selectedMoment.protection && selectedMoment.protection !== 'none' && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <strong>Protección: </strong>
+                  {selectedMoment.protection === 'with' ? '💚 Con protección' : '❤️ Sin protección'}
+                </div>
+              )}
+              
+              {selectedMoment.notes && (
+                <div style={{ marginBottom: '1rem', background: 'var(--background)', padding: '1rem', borderRadius: '8px' }}>
+                  <strong>Notas:</strong>
+                  <p style={{ marginTop: '0.5rem', whiteSpace: 'pre-wrap' }}>{selectedMoment.notes}</p>
+                </div>
+              )}
+              
+              {selectedMoment.image_url && (
+                <div style={{ marginTop: '1rem' }}>
+                  <strong>Foto secreta:</strong>
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <EncryptedImage 
+                      url={selectedMoment.image_url} 
+                      pin={user.pin} 
+                      style={{ cursor: 'pointer', maxHeight: '300px' }}
+                      onClick={() => setFullscreenImage(selectedMoment.image_url)}
+                    />
+                  </div>
+                  <small style={{ color: 'var(--text-light)', display: 'block', marginTop: '0.25rem', textAlign: 'center' }}>
+                    Toca la foto para verla en pantalla completa
+                  </small>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Visor de foto en pantalla completa */}
+      {fullscreenImage && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.95)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button 
+            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}
+            onClick={() => setFullscreenImage(null)}
+          >
+            <X size={32} />
+          </button>
+          <div onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '100%', width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <EncryptedImage 
+              url={fullscreenImage} 
+              pin={user.pin} 
+              style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain' }}
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
