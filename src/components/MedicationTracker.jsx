@@ -267,7 +267,7 @@ export default function MedicationTracker({ user }) {
                 <X size={24} />
               </button>
             </div>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} style={{ padding: '1.5rem' }}>
               <div className="form-row">
                 <div className="form-group" style={{ flex: '0 0 80px' }}>
                   <label>Icono</label>

@@ -261,7 +261,7 @@ export default function IntimateTracker({ user }) {
                 <X size={24} />
               </button>
             </div>
-            <form onSubmit={handleAddMoment}>
+            <form onSubmit={handleAddMoment} style={{ padding: '1.5rem' }}>
               <div className="form-row">
                 <div className="form-group">
                   <label>Fecha</label>
@@ -341,7 +341,7 @@ export default function IntimateTracker({ user }) {
                 <X size={24} />
               </button>
             </div>
-            <form onSubmit={handleEditMoment}>
+            <form onSubmit={handleEditMoment} style={{ padding: '1.5rem' }}>
               <div className="form-row">
                 <div className="form-group">
                   <label>Fecha</label>

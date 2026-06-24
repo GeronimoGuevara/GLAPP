@@ -118,7 +118,7 @@ export default function MealIdeas({ user }) {
                 <X size={24} />
               </button>
             </div>
-            <form onSubmit={handleAddIdea}>
+            <form onSubmit={handleAddIdea} style={{ padding: '1.5rem' }}>
               <div className="form-group">
                 <label>Emoji</label>
                 <input
