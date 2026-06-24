@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Star, Clock, ChefHat } from 'lucide-react';
+import { Plus, Star, Clock, ChefHat, X } from 'lucide-react';
 import { defaultMealIdeas } from '../data/hardcodedIdeas';
 import { getCustomMealIdeas, addCustomMealIdea, toggleFavorite, getFavorites } from '../lib/database';
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Heart, Filter, Star, Camera, Lightbulb } from 'lucide-react';
+import { Plus, Heart, Filter, Star, Camera, Lightbulb, X } from 'lucide-react';
 import { defaultDateIdeas } from '../data/hardcodedIdeas';
 import { getCustomDateIdeas, addCustomDateIdea, toggleFavorite, getFavorites } from '../lib/database';
 import { uploadImageToCloudinary } from '../lib/cloudinary';
