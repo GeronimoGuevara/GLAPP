@@ -463,12 +463,45 @@ export default function IntimateTracker({ user }) {
                       
                       {/* Imagen movida fuera de moment-info para que ocupe todo el ancho */}
                       {moment.image_url && (
-                        <div style={{ width: '100%', marginTop: '0.75rem', borderRadius: '8px', overflow: 'hidden' }}>
+                        <div style={{ position: 'relative', width: '100%', marginTop: '1rem', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
                           <EncryptedImage 
                             url={moment.image_url} 
                             pin={user.pin} 
-                            style={{ filter: 'blur(15px)', transition: 'filter 0.3s', maxHeight: '150px', cursor: 'pointer', width: '100%', objectFit: 'cover' }}
+                            style={{ 
+                              filter: 'blur(20px)', 
+                              transform: 'scale(1.1)', 
+                              transition: 'filter 0.3s', 
+                              cursor: 'pointer', 
+                              width: '100%', 
+                              height: 'auto', 
+                              display: 'block' 
+                            }}
                           />
+                          <div style={{ 
+                            position: 'absolute', 
+                            top: 0, left: 0, right: 0, bottom: 0, 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            pointerEvents: 'none', 
+                            background: 'rgba(0,0,0,0.1)' 
+                          }}>
+                            <span style={{ 
+                              background: 'rgba(255, 255, 255, 0.85)', 
+                              color: '#333', 
+                              padding: '0.5rem 1.25rem', 
+                              borderRadius: '30px', 
+                              fontWeight: '600', 
+                              fontSize: '0.85rem', 
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem'
+                            }}>
+                              <Flame size={16} color="var(--primary)" />
+                              Entra para ver la foto
+                            </span>
+                          </div>
                         </div>
                       )}
                     </div>
