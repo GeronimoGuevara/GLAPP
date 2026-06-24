@@ -14,9 +14,13 @@ export async function sql(strings, ...values) {
     query += `$${i}` + strings[i];
   }
   
+  const token = localStorage.getItem('glapp_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const response = await fetch('/api/query', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ query, params: values })
   });
   
@@ -32,9 +36,13 @@ export async function sql(strings, ...values) {
 sql.unsafe = async function(query, params = []) {
   if (!DATABASE_URL) throw new Error('Database no configurada');
 
+  const token = localStorage.getItem('glapp_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const response = await fetch('/api/query', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ query, params })
   });
   
@@ -74,11 +82,21 @@ export async function initializeTables() {
     console.log('Migración protection:', e.message);
   }
 
-  // Migración: agregar columna cycle_id a cycle_notes
+  // Migración: agregar cycle_id a cycle_notes y nuevas columnas de imágenes
   try {
     await sql`ALTER TABLE cycle_notes ADD COLUMN IF NOT EXISTS cycle_id INTEGER REFERENCES menstrual_cycles(id) ON DELETE CASCADE`;
+    await sql`ALTER TABLE intimate_moments ADD COLUMN IF NOT EXISTS image_url TEXT`;
+    await sql`ALTER TABLE custom_date_ideas ADD COLUMN IF NOT EXISTS image_url TEXT`;
+    await sql`CREATE TABLE IF NOT EXISTS couple_photos (
+      id SERIAL PRIMARY KEY,
+      couple_id INTEGER REFERENCES couples(id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      category VARCHAR(50) DEFAULT 'general',
+      uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`;
   } catch (e) {
-    console.log('Migración cycle_id:', e.message);
+    console.log('Migración cycle_id e imágenes:', e.message);
   }
 
   // Migración: tabla couples y columnas en users
@@ -157,6 +175,7 @@ export async function initializeTables() {
       moment_date TIMESTAMP NOT NULL,
       notes TEXT,
       protection VARCHAR(20),
+      image_url TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
@@ -168,6 +187,7 @@ export async function initializeTables() {
       difficulty VARCHAR(50),
       description TEXT,
       emoji VARCHAR(10),
+      image_url TEXT,
       added_by INTEGER REFERENCES users(id),
       created_at TIMESTAMP DEFAULT NOW()
     )`,
@@ -271,6 +291,16 @@ export async function initializeTables() {
       note TEXT,
       protection VARCHAR(20),
       created_at TIMESTAMP DEFAULT NOW()
+    )`,
+
+    // Tabla de fotos de pareja
+    `CREATE TABLE IF NOT EXISTS couple_photos (
+      id SERIAL PRIMARY KEY,
+      couple_id INTEGER REFERENCES couples(id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      category VARCHAR(50) DEFAULT 'general',
+      uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT NOW()
     )`
   ];
 
@@ -342,7 +372,7 @@ export async function getCycles(coupleId, limit = 12) {
 }
 
 // Funciones para momentos íntimos
-export async function addIntimateMoment(coupleId, momentDate, notes = '', protection = null) {
+export async function addIntimateMoment(coupleId, momentDate, notes = '', protection = null, image_url = null) {
   if (!sql) {
     console.error('Database no disponible');
     return { success: false, error: 'Database no configurada' };
@@ -350,8 +380,8 @@ export async function addIntimateMoment(coupleId, momentDate, notes = '', protec
   
   try {
     const result = await sql`
-      INSERT INTO intimate_moments (couple_id, moment_date, notes, protection)
-      VALUES (${coupleId}, ${momentDate}, ${notes}, ${protection})
+      INSERT INTO intimate_moments (couple_id, moment_date, notes, protection, image_url)
+      VALUES (${coupleId}, ${momentDate}, ${notes}, ${protection}, ${image_url || null})
       RETURNING *
     `;
     return { success: true, data: result };
@@ -403,7 +433,7 @@ export async function getIntimateMomentsByMonth(coupleId, monthStart, monthEnd) 
 
 
 
-export async function updateIntimateMoment(momentId, momentDate, notes = '', protection = null) {
+export async function updateIntimateMoment(momentId, momentDate, notes = '', protection = null, image_url = null) {
   if (!sql) {
     console.error('Database no disponible');
     return { success: false, error: 'Database no configurada' };
@@ -412,7 +442,7 @@ export async function updateIntimateMoment(momentId, momentDate, notes = '', pro
   try {
     const result = await sql`
       UPDATE intimate_moments
-      SET moment_date = ${momentDate}, notes = ${notes}, protection = ${protection}
+      SET moment_date = ${momentDate}, notes = ${notes}, protection = ${protection}, image_url = COALESCE(${image_url}, image_url)
       WHERE id = ${momentId}
       RETURNING *
     `;
@@ -451,8 +481,8 @@ export async function addCustomDateIdea(userId, idea) {
   
   try {
     const result = await sql`
-      INSERT INTO custom_date_ideas (title, category, difficulty, description, emoji, added_by)
-      VALUES (${idea.title}, ${idea.category}, ${idea.difficulty}, ${idea.description}, ${idea.emoji}, ${userId})
+      INSERT INTO custom_date_ideas (title, category, difficulty, description, emoji, image_url, added_by)
+      VALUES (${idea.title}, ${idea.category}, ${idea.difficulty}, ${idea.description}, ${idea.emoji}, ${idea.image_url || null}, ${userId})
       RETURNING *
     `;
     return { success: true, data: result };
@@ -901,17 +931,31 @@ export async function getUserById(id) {
   }
 }
 
-export async function getUserByEmailAndPin(email, pin) {
-  if (!sql) return { success: false, error: 'Database no configurada' };
+export async function loginUser(email, pin) {
   try {
-    const result = await sql`SELECT * FROM users WHERE email ILIKE ${email} AND pin = ${pin}`;
-    if (result.length > 0) {
-      return { success: true, data: result[0] };
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, pin })
+    });
+    
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || 'Login fallido' };
     }
-    return { success: false, error: 'Email o PIN incorrectos' };
+    
+    // Guardar el token para futuras peticiones
+    localStorage.setItem('glapp_token', data.token);
+    
+    return { success: true, data: data.user };
   } catch (error) {
     return { success: false, error: error.message };
   }
+}
+
+// Deprecated: getUserByEmailAndPin (reemplazado por loginUser)
+export async function getUserByEmailAndPin(email, pin) {
+  return await loginUser(email, pin);
 }
 
 export async function createUser(name, email, pin, gender) {
@@ -944,6 +988,22 @@ export async function getPartner(coupleId, currentUserId) {
     return { success: false, error: 'Pareja no encontrada' };
   } catch (error) {
     return { success: false, error: error.message };
+  }
+}
+
+export async function getPartnerPin(coupleId, currentUserId) {
+  if (!sql || !coupleId) return null;
+  try {
+    // Al requerir JWT, esta query es segura de ejecutar porque sabemos que el usuario
+    // actual pertenece a coupleId y tiene permiso implícito para saber el pin de su pareja
+    const result = await sql`SELECT pin FROM users WHERE couple_id = ${coupleId} AND id != ${currentUserId} LIMIT 1`;
+    if (result.length > 0) {
+      return result[0].pin;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching partner PIN:', error);
+    return null;
   }
 }
 
@@ -1209,6 +1269,52 @@ export async function getCompetitions(coupleId) {
     
     return { success: true, data: comps };
   } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ==========================================
+// Funciones para Fotos de Pareja
+// ==========================================
+
+export async function addCouplePhoto(coupleId, userId, url, category = 'general') {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    const result = await sql`
+      INSERT INTO couple_photos (couple_id, uploaded_by, url, category)
+      VALUES (${coupleId}, ${userId}, ${url}, ${category})
+      RETURNING *
+    `;
+    return { success: true, data: result[0] };
+  } catch (error) {
+    console.error('Error adding couple photo:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getCouplePhotos(coupleId, category = null) {
+  if (!sql) return { success: false, error: 'Database no configurada', data: [] };
+  try {
+    let result;
+    if (category) {
+      result = await sql`SELECT * FROM couple_photos WHERE couple_id = ${coupleId} AND category = ${category} ORDER BY created_at DESC`;
+    } else {
+      result = await sql`SELECT * FROM couple_photos WHERE couple_id = ${coupleId} ORDER BY created_at DESC`;
+    }
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error getting couple photos:', error);
+    return { success: false, error: error.message, data: [] };
+  }
+}
+
+export async function deleteCouplePhoto(photoId) {
+  if (!sql) return { success: false, error: 'Database no configurada' };
+  try {
+    await sql`DELETE FROM couple_photos WHERE id = ${photoId}`;
+    return { success: true, data: [] };
+  } catch (error) {
+    console.error('Error deleting couple photo:', error);
     return { success: false, error: error.message };
   }
 }

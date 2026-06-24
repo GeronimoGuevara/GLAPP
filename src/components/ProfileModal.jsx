@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { User, X, Camera, Lock, LogOut, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { getPartner, updateUserPin, updateUserAvatar } from '../lib/database';
+import { uploadImageToCloudinary } from '../lib/cloudinary';
 
 export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, onShowSummary }) {
   const [partner, setPartner] = useState(null);
@@ -60,9 +62,20 @@ export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, on
         
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
         
-        const res = await updateUserAvatar(user.id, dataUrl);
-        if (res.success) {
-          onUserUpdate(res.data);
+        const loadingToast = toast.loading('Subiendo foto...');
+        try {
+          // Subir a Cloudinary (dataUrl funciona perfectamente con auto/upload)
+          const secureUrl = await uploadImageToCloudinary(dataUrl);
+          
+          const res = await updateUserAvatar(user.id, secureUrl);
+          if (res.success) {
+            toast.success('Foto actualizada', { id: loadingToast });
+            onUserUpdate(res.data);
+          } else {
+            throw new Error(res.error || 'Error al guardar');
+          }
+        } catch (error) {
+          toast.error('Error al subir: ' + error.message, { id: loadingToast });
         }
       };
       img.src = event.target.result;

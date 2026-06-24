@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Dices, Heart, Trophy, Users, Copy, CheckCircle } from 'lucide-react';
-import { saveGameScore, createCompetition, joinCompetition, getCompetitions } from '../lib/database';
+import { Dices, Heart, Trophy, Users, Copy, CheckCircle, Camera, Image as ImageIcon } from 'lucide-react';
+import { saveGameScore, createCompetition, joinCompetition, getCompetitions, addCouplePhoto, getCouplePhotos, deleteCouplePhoto } from '../lib/database';
+import { uploadImageToCloudinary } from '../lib/cloudinary';
 
 export default function Games({ user }) {
   const [activeGame, setActiveGame] = useState(null);
@@ -190,13 +191,60 @@ function MemoryGame({ user }) {
   const [matched, setMatched] = useState([]);
   const [moves, setMoves] = useState(0);
   const [scoreSaved, setScoreSaved] = useState(false);
+  const [photos, setPhotos] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const emojis = ['💕', '💖', '💗', '💓', '💝', '💘', '❤️', '🧡'];
 
+  const loadPhotos = async () => {
+    if (!user?.couple_id) return;
+    const res = await getCouplePhotos(user.couple_id, 'memory_game');
+    if (res.success) {
+      setPhotos(res.data);
+    }
+  };
+
+  useEffect(() => {
+    loadPhotos();
+  }, [user?.couple_id]);
+
+  const handleUploadPhoto = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const loadingToast = toast.loading('Subiendo foto...');
+    try {
+      const url = await uploadImageToCloudinary(file);
+      const res = await addCouplePhoto(user.couple_id, user.id, url, 'memory_game');
+      if (res.success) {
+        toast.success('Foto añadida al juego', { id: loadingToast });
+        loadPhotos();
+      } else {
+        throw new Error(res.error);
+      }
+    } catch (error) {
+      toast.error('Error al subir: ' + error.message, { id: loadingToast });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const initGame = () => {
-    const shuffled = [...emojis, ...emojis]
+    // Usar hasta 8 fotos, y rellenar con emojis si faltan
+    const selectedItems = [];
+    for (let i = 0; i < 8; i++) {
+      if (photos[i]) {
+        selectedItems.push({ type: 'image', content: photos[i].url, urlId: photos[i].id });
+      } else {
+        selectedItems.push({ type: 'emoji', content: emojis[i] });
+      }
+    }
+    
+    const shuffled = [...selectedItems, ...selectedItems]
       .sort(() => Math.random() - 0.5)
-      .map((emoji, index) => ({ id: index, emoji }));
+      .map((item, index) => ({ id: index, ...item }));
+      
     setCards(shuffled);
     setFlipped([]);
     setMatched([]);
@@ -204,9 +252,10 @@ function MemoryGame({ user }) {
     setScoreSaved(false);
   };
 
-  useState(() => {
+  // Re-inicializar si las fotos cambian
+  useEffect(() => {
     initGame();
-  }, []);
+  }, [photos]);
 
   const handleClick = (index) => {
     if (flipped.length === 2 || flipped.includes(index) || matched.includes(index)) {
@@ -220,7 +269,7 @@ function MemoryGame({ user }) {
       setMoves(moves + 1);
       const [first, second] = newFlipped;
       
-      if (cards[first].emoji === cards[second].emoji) {
+      if (cards[first].content === cards[second].content) {
         setMatched([...matched, first, second]);
         setFlipped([]);
       } else {
@@ -267,9 +316,25 @@ function MemoryGame({ user }) {
             onClick={() => handleClick(index)}
           >
             <div className="card-front">?</div>
-            <div className="card-back">{card.emoji}</div>
+            <div className="card-back">
+              {card.type === 'emoji' ? card.content : (
+                <img src={card.content} alt="memoria" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
+              )}
+            </div>
           </div>
         ))}
+      </div>
+
+      <div className="memory-controls" style={{ marginTop: '2rem', textAlign: 'center' }}>
+        <h3>Personaliza tu juego</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '1rem' }}>
+          Sube fotos de ustedes para reemplazar los emojis (hasta 8 fotos). {photos.length}/8 fotos.
+        </p>
+        <label className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', opacity: isUploading ? 0.7 : 1 }}>
+          <Camera size={20} />
+          {isUploading ? 'Subiendo...' : 'Añadir foto al juego'}
+          <input type="file" accept="image/*" onChange={handleUploadPhoto} disabled={isUploading || photos.length >= 8} style={{ display: 'none' }} />
+        </label>
       </div>
     </div>
   );

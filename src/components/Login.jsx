@@ -70,6 +70,7 @@ export default function Login({ onLogin }) {
 
   const handleLogoutDevice = () => {
     localStorage.removeItem('registeredUserId');
+    localStorage.removeItem('glapp_token');
     setRegisteredUserId(null);
     setUnlockUser(null);
     setPin('');

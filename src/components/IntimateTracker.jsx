@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Flame, Plus, Calendar as CalendarIcon, Edit2, Trash2, X } from 'lucide-react';
-import { addIntimateMoment, getIntimateMoments, updateIntimateMoment, deleteIntimateMoment } from '../lib/database';
+import { Flame, Plus, Calendar as CalendarIcon, Edit2, Trash2, X, Camera, Image as ImageIcon } from 'lucide-react';
+import { addIntimateMoment, getIntimateMoments, updateIntimateMoment, deleteIntimateMoment, getPartnerPin } from '../lib/database';
 import { format, parseISO, differenceInDays, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { uploadEncryptedImage } from '../lib/cloudinary';
+import EncryptedImage from './EncryptedImage';
 
 export default function IntimateTracker({ user }) {
   const [moments, setMoments] = useState([]);
@@ -13,13 +15,15 @@ export default function IntimateTracker({ user }) {
     date: format(new Date(), 'yyyy-MM-dd'),
     time: format(new Date(), 'HH:mm'),
     notes: '',
-    protection: 'none'
+    protection: 'none',
+    photoFile: null
   });
   const [editMoment, setEditMoment] = useState({
     date: '',
     time: '',
     notes: '',
-    protection: 'none'
+    protection: 'none',
+    photoFile: null
   });
 
   useEffect(() => {
@@ -37,18 +41,37 @@ export default function IntimateTracker({ user }) {
     e.preventDefault();
     const datetime = `${newMoment.date}T${newMoment.time}:00`;
     const protection = newMoment.protection === 'none' ? null : newMoment.protection;
-    const result = await addIntimateMoment(user.couple_id, datetime, newMoment.notes, protection);
     
-    if (result.success) {
-      loadMoments();
-      setNewMoment({
-        date: format(new Date(), 'yyyy-MM-dd'),
-        time: format(new Date(), 'HH:mm'),
-        notes: '',
-        protection: 'none'
-      });
-      setShowAddForm(false);
-      toast.success('Momento registrado ❤️');
+    let imageUrl = null;
+    let loadingToast = null;
+
+    try {
+      if (newMoment.photoFile) {
+        loadingToast = toast.loading('Obteniendo claves y encriptando foto...');
+        const partnerPin = await getPartnerPin(user.couple_id, user.id);
+        imageUrl = await uploadEncryptedImage(newMoment.photoFile, user.pin, partnerPin);
+        toast.dismiss(loadingToast);
+      }
+      
+      const result = await addIntimateMoment(user.couple_id, datetime, newMoment.notes, protection, imageUrl);
+      
+      if (result.success) {
+        loadMoments();
+        setNewMoment({
+          date: format(new Date(), 'yyyy-MM-dd'),
+          time: format(new Date(), 'HH:mm'),
+          notes: '',
+          protection: 'none',
+          photoFile: null
+        });
+        setShowAddForm(false);
+        toast.success('Momento registrado ❤️');
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      if (loadingToast) toast.dismiss(loadingToast);
+      toast.error('Error: ' + error.message);
     }
   };
 
@@ -58,13 +81,31 @@ export default function IntimateTracker({ user }) {
     
     const datetime = `${editMoment.date}T${editMoment.time}:00`;
     const protection = editMoment.protection === 'none' ? null : editMoment.protection;
-    const result = await updateIntimateMoment(editingMoment.id, datetime, editMoment.notes, protection);
     
-    if (result.success) {
-      loadMoments();
-      setEditingMoment(null);
-      setEditMoment({ date: '', time: '', notes: '', protection: 'none' });
-      toast.success('Momento actualizado ❤️');
+    let imageUrl = editingMoment.image_url;
+    let loadingToast = null;
+
+    try {
+      if (editMoment.photoFile) {
+        loadingToast = toast.loading('Obteniendo claves y encriptando foto...');
+        const partnerPin = await getPartnerPin(user.couple_id, user.id);
+        imageUrl = await uploadEncryptedImage(editMoment.photoFile, user.pin, partnerPin);
+        toast.dismiss(loadingToast);
+      }
+      
+      const result = await updateIntimateMoment(editingMoment.id, datetime, editMoment.notes, protection, imageUrl);
+      
+      if (result.success) {
+        loadMoments();
+        setEditingMoment(null);
+        setEditMoment({ date: '', time: '', notes: '', protection: 'none', photoFile: null });
+        toast.success('Momento actualizado ❤️');
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      if (loadingToast) toast.dismiss(loadingToast);
+      toast.error('Error: ' + error.message);
     }
   };
 
@@ -86,7 +127,8 @@ export default function IntimateTracker({ user }) {
       date: format(date, 'yyyy-MM-dd'),
       time: format(date, 'HH:mm'),
       notes: moment.notes || '',
-      protection: moment.protection || 'none'
+      protection: moment.protection || 'none',
+      photoFile: null
     });
   };
 
@@ -254,6 +296,19 @@ export default function IntimateTracker({ user }) {
               />
             </div>
 
+            <div className="form-group">
+              <label>Foto Secreta (opcional)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--background)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 'bold' }}>
+                  <Camera size={20} />
+                  {newMoment.photoFile ? 'Cambiar foto' : 'Añadir foto E2EE'}
+                  <input type="file" accept="image/*" onChange={(e) => setNewMoment({...newMoment, photoFile: e.target.files[0]})} style={{ display: 'none' }} />
+                </label>
+                {newMoment.photoFile && <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{newMoment.photoFile.name}</span>}
+              </div>
+              <small style={{ color: 'var(--text-light)', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>La foto se encriptará en tu celular antes de subirse. Solo podrá verse con tu PIN.</small>
+            </div>
+
             <div className="form-actions">
               <button type="button" onClick={() => setShowAddForm(false)} className="btn-secondary">
                 Cancelar
@@ -314,6 +369,19 @@ export default function IntimateTracker({ user }) {
               />
             </div>
 
+            <div className="form-group">
+              <label>Foto Secreta (opcional)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--background)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 'bold' }}>
+                  <Camera size={20} />
+                  {editMoment.photoFile ? 'Cambiar foto' : (editingMoment.image_url ? 'Actualizar foto E2EE' : 'Añadir foto E2EE')}
+                  <input type="file" accept="image/*" onChange={(e) => setEditMoment({...editMoment, photoFile: e.target.files[0]})} style={{ display: 'none' }} />
+                </label>
+                {editMoment.photoFile && <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{editMoment.photoFile.name}</span>}
+              </div>
+              <small style={{ color: 'var(--text-light)', fontSize: '0.75rem', display: 'block', marginTop: '0.25rem' }}>La foto se encriptará en tu celular antes de subirse. Solo podrá verse con tu PIN.</small>
+            </div>
+
             <div className="form-actions">
               <button type="button" onClick={() => { setEditingMoment(null); setEditMoment({ date: '', time: '', notes: '', protection: 'none' }); }} className="btn-secondary">
                 Cancelar
@@ -363,6 +431,11 @@ export default function IntimateTracker({ user }) {
                         )}
                         {moment.notes && (
                           <p className="moment-notes">{moment.notes}</p>
+                        )}
+                        {moment.image_url && (
+                          <div style={{ marginTop: '0.75rem', maxWidth: '300px' }}>
+                            <EncryptedImage url={moment.image_url} pin={user.pin} />
+                          </div>
                         )}
                       </div>
                       <div className="moment-actions">

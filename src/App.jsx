@@ -100,7 +100,9 @@ function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('glapp_token');
     setActiveView('home');
+    setIsProfileOpen(false);
   };
 
   const handleUserUpdate = (updatedUser) => {

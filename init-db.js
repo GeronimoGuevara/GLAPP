@@ -51,6 +51,7 @@ async function initDB() {
       couple_id INTEGER REFERENCES couples(id),
       moment_date TIMESTAMP NOT NULL,
       notes TEXT,
+      image_url TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
     
@@ -61,6 +62,7 @@ async function initDB() {
       difficulty VARCHAR(50),
       description TEXT,
       emoji VARCHAR(10),
+      image_url TEXT,
       added_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
@@ -153,6 +155,21 @@ async function initDB() {
       note_type VARCHAR(50) NOT NULL,
       note TEXT,
       created_at TIMESTAMP DEFAULT NOW()
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS couple_photos (
+      id SERIAL PRIMARY KEY,
+      couple_id INTEGER REFERENCES couples(id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      category VARCHAR(50) DEFAULT 'general',
+      uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS api_rate_limits (
+      ip VARCHAR(45) PRIMARY KEY,
+      request_count INTEGER DEFAULT 1,
+      reset_time BIGINT NOT NULL
     )`
   ];
 

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Plus, Heart, Filter, Star } from 'lucide-react';
+import { Plus, Heart, Filter, Star, Camera, Lightbulb } from 'lucide-react';
 import { defaultDateIdeas } from '../data/hardcodedIdeas';
 import { getCustomDateIdeas, addCustomDateIdea, toggleFavorite, getFavorites } from '../lib/database';
+import { uploadImageToCloudinary } from '../lib/cloudinary';
+import toast from 'react-hot-toast';
 
 export default function DateIdeas({ user }) {
   const [customIdeas, setCustomIdeas] = useState([]);
@@ -13,7 +15,8 @@ export default function DateIdeas({ user }) {
     category: 'romántico',
     difficulty: 'fácil',
     description: '',
-    emoji: '💕'
+    emoji: '💕',
+    photoFile: null
   });
 
   // Cargar ideas personalizadas y favoritos
@@ -38,18 +41,38 @@ export default function DateIdeas({ user }) {
 
   const handleAddIdea = async (e) => {
     e.preventDefault();
-    const result = await addCustomDateIdea(user.id, newIdea);
     
-    if (result.success) {
-      setCustomIdeas([result.data[0], ...customIdeas]);
-      setNewIdea({
-        title: '',
-        category: 'romántico',
-        difficulty: 'fácil',
-        description: '',
-        emoji: '💕'
-      });
-      setShowAddForm(false);
+    let imageUrl = null;
+    let loadingToast = null;
+    
+    try {
+      if (newIdea.photoFile) {
+        loadingToast = toast.loading('Subiendo imagen...');
+        imageUrl = await uploadImageToCloudinary(newIdea.photoFile);
+        toast.dismiss(loadingToast);
+      }
+      
+      const ideaToSave = { ...newIdea, image_url: imageUrl };
+      const result = await addCustomDateIdea(user.id, ideaToSave);
+      
+      if (result.success) {
+        setCustomIdeas([result.data[0], ...customIdeas]);
+        setNewIdea({
+          title: '',
+          category: 'romántico',
+          difficulty: 'fácil',
+          description: '',
+          emoji: '💕',
+          photoFile: null
+        });
+        setShowAddForm(false);
+        toast.success('Idea agregada con éxito');
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      if (loadingToast) toast.dismiss(loadingToast);
+      toast.error('Error: ' + error.message);
     }
   };
 
@@ -156,6 +179,18 @@ export default function DateIdeas({ user }) {
               />
             </div>
 
+            <div className="form-group">
+              <label>Foto (opcional)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--background)', padding: '0.75rem', borderRadius: '8px', border: '1px dashed var(--border)' }}>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 'bold' }}>
+                  <Camera size={20} />
+                  {newIdea.photoFile ? 'Cambiar foto' : 'Añadir foto'}
+                  <input type="file" accept="image/*" onChange={(e) => setNewIdea({...newIdea, photoFile: e.target.files[0]})} style={{ display: 'none' }} />
+                </label>
+                {newIdea.photoFile && <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{newIdea.photoFile.name}</span>}
+              </div>
+            </div>
+
             <div className="form-actions">
               <button type="button" onClick={() => setShowAddForm(false)} className="btn-secondary">
                 Cancelar
@@ -201,6 +236,13 @@ export default function DateIdeas({ user }) {
               {idea.isCustom && <span className="tag custom">Personalizada</span>}
             </div>
             <p className="idea-description">{idea.description}</p>
+            {idea.image_url && (
+              <img 
+                src={idea.image_url} 
+                alt={idea.title} 
+                style={{ width: '100%', borderRadius: '8px', marginTop: '1rem', objectFit: 'cover', maxHeight: '200px' }} 
+              />
+            )}
           </div>
         ))}
       </div>
