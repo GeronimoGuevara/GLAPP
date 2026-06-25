@@ -10,7 +10,7 @@ import MedicationTracker from './components/MedicationTracker';
 import MonthlySummaryModal from './components/MonthlySummaryModal';
 import './styles/App.css';
 import { Toaster } from 'react-hot-toast';
-import { initializeTables, getCycles, getIntimateMoments, getCycleSettings } from './lib/database';
+import { initializeTables, getCycles, getIntimateMoments, getCycleSettings, getMonthlySummary } from './lib/database';
 import ProfileModal from './components/ProfileModal';
 
 
@@ -49,25 +49,45 @@ function App() {
     initDb();
 
     // Check for monthly summary
-    if (currentUser && currentUser.couple_id) {
-      const today = new Date();
-      const currentMonthStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
-      const lastSeenSummary = localStorage.getItem(`lastSeenSummary_${currentUser.couple_id}`);
+    const checkSummary = async () => {
+      if (currentUser && currentUser.couple_id) {
+        const today = new Date();
+        const currentMonthStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+        const lastSeenSummary = localStorage.getItem(`lastSeenSummary_${currentUser.couple_id}`);
 
-      if (lastSeenSummary !== currentMonthStr) {
-        let prevMonth = today.getMonth();
-        let prevYear = today.getFullYear();
-        if (prevMonth === 0) {
-          prevMonth = 12;
-          prevYear -= 1;
-        } else {
-          prevMonth = prevMonth; 
+        if (lastSeenSummary !== currentMonthStr) {
+          let prevMonth = today.getMonth();
+          let prevYear = today.getFullYear();
+          if (prevMonth === 0) {
+            prevMonth = 12;
+            prevYear -= 1;
+          }
+          
+          try {
+            const res = await getMonthlySummary(currentUser.couple_id, prevYear, prevMonth);
+            let hasData = false;
+            
+            if (res.success && res.data) {
+              const hasIntimate = res.data.intimateCount > 0;
+              const hasGame = res.data.memoryGame && res.data.memoryGame.length > 0;
+              const hasLeagueData = res.data.leagues && res.data.leagues.some(l => l.myBest !== null || l.opponentBest !== null);
+              hasData = hasIntimate || hasGame || hasLeagueData;
+            }
+
+            if (!hasData) {
+              localStorage.setItem(`lastSeenSummary_${currentUser.couple_id}`, currentMonthStr);
+            } else {
+              setSummaryDate({ year: prevYear, month: prevMonth });
+              setShowMonthlySummary(true);
+            }
+          } catch (e) {
+            console.error("Error al revisar el resumen mensual:", e);
+          }
         }
-        
-        setSummaryDate({ year: prevYear, month: prevMonth });
-        setShowMonthlySummary(true);
       }
-    }
+    };
+
+    checkSummary();
   }, [currentUser]);
 
   const handleCloseMonthlySummary = () => {

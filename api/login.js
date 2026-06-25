@@ -24,8 +24,9 @@ export default async function handler(req, res) {
 
   const sql = postgres(DATABASE_URL, { ssl: 'require' });
 
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
-  const isAllowed = await checkRateLimit(sql, ip, 10, 60000); 
+  let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  if (ip.includes(',')) ip = ip.split(',')[0].trim();
+  const isAllowed = await checkRateLimit(sql, ip, 30, 60000); 
   
   if (!isAllowed) {
     return res.status(429).json({ success: false, error: 'Demasiados intentos. Por favor espera un minuto.' });
