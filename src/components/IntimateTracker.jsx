@@ -272,6 +272,7 @@ export default function IntimateTracker({ user }) {
                     value={newMoment.date}
                     onChange={(e) => setNewMoment({...newMoment, date: e.target.value})}
                     required
+                    style={{ width: '100%', WebkitAppearance: 'none', appearance: 'none', minWidth: 0 }}
                   />
                 </div>
 
@@ -281,6 +282,7 @@ export default function IntimateTracker({ user }) {
                     type="time"
                     value={newMoment.time}
                     onChange={(e) => setNewMoment({...newMoment, time: e.target.value})}
+                    style={{ width: '100%', WebkitAppearance: 'none', appearance: 'none', minWidth: 0 }}
                   />
                 </div>
               </div>
@@ -352,6 +354,7 @@ export default function IntimateTracker({ user }) {
                     value={editMoment.date}
                     onChange={(e) => setEditMoment({...editMoment, date: e.target.value})}
                     required
+                    style={{ width: '100%', WebkitAppearance: 'none', appearance: 'none', minWidth: 0 }}
                   />
                 </div>
 
@@ -361,6 +364,7 @@ export default function IntimateTracker({ user }) {
                     type="time"
                     value={editMoment.time}
                     onChange={(e) => setEditMoment({...editMoment, time: e.target.value})}
+                    style={{ width: '100%', WebkitAppearance: 'none', appearance: 'none', minWidth: 0 }}
                   />
                 </div>
               </div>
