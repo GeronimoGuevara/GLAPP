@@ -77,7 +77,7 @@ function App() {
             let hasData = false;
             
             if (res.success && res.data) {
-              const hasIntimate = res.data.intimateCount > 0;
+              const hasIntimate = Number(res.data.intimateCount) > 0;
               const hasGame = res.data.memoryGame && res.data.memoryGame.length > 0;
               const hasLeagueData = res.data.leagues && res.data.leagues.some(l => l.myBest !== null || l.opponentBest !== null);
               hasData = hasIntimate || hasGame || hasLeagueData;
