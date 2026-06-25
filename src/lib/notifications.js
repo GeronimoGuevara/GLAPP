@@ -2,8 +2,7 @@
 import toast from 'react-hot-toast';
 
 // Clave pública VAPID (deberías obtenerla de tus variables de entorno)
-const { VITE_VAPID_PUBLIC_KEY } = import.meta.env;
-const VAPID_PUBLIC_KEY = VITE_VAPID_PUBLIC_KEY;
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
 // Utilidad para convertir la clave VAPID
 function urlBase64ToUint8Array(base64String) {
@@ -50,7 +49,8 @@ export async function checkNotificationPermission(request = false, userId = null
 
 async function subscribeToPush(userId) {
   try {
-    const registration = await navigator.serviceWorker.ready;
+    let registration = await navigator.serviceWorker.register('/sw.js');
+    registration = await navigator.serviceWorker.ready;
     
     // Verificar si ya está suscrito
     let subscription = await registration.pushManager.getSubscription();
