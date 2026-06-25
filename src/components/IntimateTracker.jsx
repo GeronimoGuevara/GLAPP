@@ -264,25 +264,23 @@ export default function IntimateTracker({ user }) {
               </button>
             </div>
             <form onSubmit={handleAddMoment} style={{ padding: '1.5rem' }}>
-              <div className="form-row" style={{ display: 'flex', gap: '1rem', width: '100%' }}>
-                <div className="form-group" style={{ flex: 1, minWidth: 0, margin: 0 }}>
+              <div className="form-row">
+                <div className="form-group">
                   <label>Fecha</label>
                   <input
                     type="date"
                     value={newMoment.date}
                     onChange={(e) => setNewMoment({...newMoment, date: e.target.value})}
                     required
-                    style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
 
-                <div className="form-group" style={{ flex: 1, minWidth: 0, margin: 0 }}>
+                <div className="form-group">
                   <label>Hora (opcional)</label>
                   <input
                     type="time"
                     value={newMoment.time}
                     onChange={(e) => setNewMoment({...newMoment, time: e.target.value})}
-                    style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
@@ -346,25 +344,23 @@ export default function IntimateTracker({ user }) {
               </button>
             </div>
             <form onSubmit={handleEditMoment} style={{ padding: '1.5rem' }}>
-              <div className="form-row" style={{ display: 'flex', gap: '1rem', width: '100%' }}>
-                <div className="form-group" style={{ flex: 1, minWidth: 0, margin: 0 }}>
+              <div className="form-row">
+                <div className="form-group">
                   <label>Fecha</label>
                   <input
                     type="date"
                     value={editMoment.date}
                     onChange={(e) => setEditMoment({...editMoment, date: e.target.value})}
                     required
-                    style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
 
-                <div className="form-group" style={{ flex: 1, minWidth: 0, margin: 0 }}>
+                <div className="form-group">
                   <label>Hora (opcional)</label>
                   <input
                     type="time"
                     value={editMoment.time}
                     onChange={(e) => setEditMoment({...editMoment, time: e.target.value})}
-                    style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
