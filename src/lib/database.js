@@ -104,6 +104,7 @@ export async function initializeTables() {
     await sql`CREATE TABLE IF NOT EXISTS couples (id SERIAL PRIMARY KEY, created_at TIMESTAMP DEFAULT NOW())`;
     await sql`ALTER TABLE couples ADD COLUMN IF NOT EXISTS invite_code VARCHAR(20) UNIQUE`;
     await sql`ALTER TABLE couples ADD COLUMN IF NOT EXISTS email VARCHAR(255)`;
+    await sql`ALTER TABLE couples ADD COLUMN IF NOT EXISTS encryption_key VARCHAR(255)`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(10) DEFAULT 'mujer'`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS couple_id INTEGER REFERENCES couples(id)`;
@@ -136,12 +137,20 @@ export async function initializeTables() {
     console.log('Migración parejas:', e.message);
   }
 
+  // Migración: campos faltantes en otras tablas
+  try {
+    await sql`ALTER TABLE medications ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`;
+  } catch (e) {
+    console.log('Migración medications:', e.message);
+  }
+
   const tables = [
     // Tabla de parejas
     `CREATE TABLE IF NOT EXISTS couples (
       id SERIAL PRIMARY KEY,
       invite_code VARCHAR(20) UNIQUE,
       email VARCHAR(255),
+      encryption_key VARCHAR(255),
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 

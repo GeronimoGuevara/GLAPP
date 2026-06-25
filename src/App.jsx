@@ -18,6 +18,15 @@ function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const savedUser = localStorage.getItem('currentUser');
+      const token = localStorage.getItem('glapp_token');
+      
+      // Si hay usuario pero no hay token, forzamos cierre de sesión para migrar a JWT
+      if (savedUser && savedUser !== 'undefined' && !token) {
+        console.warn("Usuario encontrado pero sin token de seguridad. Forzando cierre de sesión.");
+        localStorage.removeItem('currentUser');
+        return null;
+      }
+
       return savedUser && savedUser !== 'undefined' ? JSON.parse(savedUser) : null;
     } catch (e) {
       console.error("Error parsing currentUser from localStorage", e);

@@ -101,6 +101,9 @@ export default function MedicationTracker({ user }) {
 
       loadMedications();
       resetForm();
+      toast.success(editingId ? 'Medicamento actualizado' : 'Medicamento guardado');
+    } else {
+      toast.error('Error al guardar: ' + (result.error || 'Desconocido'));
     }
   };
 
@@ -109,6 +112,9 @@ export default function MedicationTracker({ user }) {
       const result = await deleteMedication(id);
       if (result.success) {
         loadMedications();
+        toast.success('Medicamento eliminado');
+      } else {
+        toast.error('Error al eliminar: ' + (result.error || 'Desconocido'));
       }
     }
   };
@@ -140,6 +146,8 @@ export default function MedicationTracker({ user }) {
           checkNotificationPermission(false, user.id);
         }
       }
+    } else {
+      toast.error('Error al actualizar estado: ' + (result.error || 'Desconocido'));
     }
   };
 
@@ -149,6 +157,8 @@ export default function MedicationTracker({ user }) {
       loadHistory();
       // Mostrar feedback visual
       toast.success(`✅ ${medName} marcada como tomada`);
+    } else {
+      toast.error('Error al registrar toma: ' + (result.error || 'Desconocido'));
     }
   };
 
