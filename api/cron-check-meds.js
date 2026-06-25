@@ -1,6 +1,9 @@
 import postgres from 'postgres';
 import webpush from 'web-push';
 
+const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
+const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require', max: 1 }) : null;
+
 export default async function handler(req, res) {
   // Removido el chequeo estricto estático de CRON_SECRET para asegurar
   // que servicios externos como cron-job.org siempre puedan ejecutar el código.
@@ -18,13 +21,10 @@ export default async function handler(req, res) {
 
     webpush.setVapidDetails(mailTo, pubKey, privKey);
 
-    const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
-    if (!DATABASE_URL) {
+    if (!sql) {
       console.error('Database URL not configured');
       return res.status(500).json({ success: false, error: 'Missing Database URL' });
     }
-
-    const sql = postgres(DATABASE_URL, { ssl: 'require' });
 
     // Obtener la hora actual en zona horaria de Argentina
     const now = new Date();

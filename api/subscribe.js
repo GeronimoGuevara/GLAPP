@@ -1,5 +1,8 @@
 import postgres from 'postgres';
 
+const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
+const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require', max: 1 }) : null;
+
 export default async function handler(req, res) {
   // CORS check (Vercel automatically handles some, but good to be safe)
   if (req.method === 'OPTIONS') {
@@ -17,12 +20,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
-    const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
-    if (!DATABASE_URL) {
+    if (!sql) {
       return res.status(500).json({ error: 'Database URL not configured' });
     }
-
-    const sql = postgres(DATABASE_URL, { ssl: 'require' });
 
     // Verificar si la tabla push_subscriptions existe, si no crearla
     try {

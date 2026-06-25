@@ -1,6 +1,9 @@
 import postgres from 'postgres';
 import webpush from 'web-push';
 
+const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
+const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require', max: 1 }) : null;
+
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -27,12 +30,9 @@ export default async function handler(req, res) {
 
     webpush.setVapidDetails(mailTo, pubKey, privKey);
 
-    const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
-    if (!DATABASE_URL) {
+    if (!sql) {
       return res.status(500).json({ error: 'Database URL not configured' });
     }
-
-    const sql = postgres(DATABASE_URL, { ssl: 'require' });
 
     // Buscar las subscripciones del usuario
     const subs = await sql`
