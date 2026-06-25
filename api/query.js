@@ -2,6 +2,10 @@ import postgres from 'postgres';
 import jwt from 'jsonwebtoken';
 import { checkRateLimit } from './rate-limiter.js';
 
+const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
+const JWT_SECRET = process.env.JWT_SECRET || 'glapp-super-secret-key-2026';
+const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require', max: 1 }) : null;
+
 export default async function handler(req, res) {
   // Configurar CORS por si se llama desde otro origen
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -22,14 +26,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing query parameter' });
   }
 
-  const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
-  const JWT_SECRET = process.env.JWT_SECRET || 'glapp-super-secret-key-2026';
-  
-  if (!DATABASE_URL) {
+  if (!sql) {
     return res.status(500).json({ error: 'Database URL not configured' });
   }
-
-  const sql = postgres(DATABASE_URL, { ssl: 'require' });
 
   // 1. Rate Limiting general (200 peticiones por minuto por IP)
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';

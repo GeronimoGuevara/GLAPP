@@ -107,6 +107,7 @@ export async function initializeTables() {
     await sql`ALTER TABLE couples ADD COLUMN IF NOT EXISTS encryption_key VARCHAR(255)`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(10) DEFAULT 'mujer'`;
+    await sql`ALTER TABLE users ALTER COLUMN pin TYPE VARCHAR(255)`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS couple_id INTEGER REFERENCES couples(id)`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT`;
     await sql`ALTER TABLE intimate_moments ADD COLUMN IF NOT EXISTS couple_id INTEGER REFERENCES couples(id)`;

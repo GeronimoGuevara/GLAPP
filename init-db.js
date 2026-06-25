@@ -194,6 +194,8 @@ async function initDB() {
     console.log('🎉 ¡Todas las tablas y migraciones se completaron correctamente!');
   } catch (err) {
     console.error('❌ Error al crear las tablas:', err);
+  } finally {
+    await sql.end();
   }
 }
 

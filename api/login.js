@@ -3,6 +3,10 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { checkRateLimit } from './rate-limiter.js';
 
+const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
+const JWT_SECRET = process.env.JWT_SECRET || 'glapp-super-secret-key-2026';
+const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require', max: 1 }) : null;
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -17,12 +21,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, error: 'Email y contraseña son requeridos' });
   }
 
-  const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
-  const JWT_SECRET = process.env.JWT_SECRET || 'glapp-super-secret-key-2026';
-
-  if (!DATABASE_URL) return res.status(500).json({ success: false, error: 'Database URL no configurada' });
-
-  const sql = postgres(DATABASE_URL, { ssl: 'require' });
+  if (!sql) return res.status(500).json({ success: false, error: 'Database URL no configurada' });
 
   let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   if (ip.includes(',')) ip = ip.split(',')[0].trim();
