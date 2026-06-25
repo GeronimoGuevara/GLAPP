@@ -430,6 +430,8 @@ h4 {
 
 .form-group {
   margin-bottom: 1.25rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .form-group label {
@@ -443,6 +445,9 @@ h4 {
 .form-group select,
 .form-group textarea {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
   padding: 0.75rem;
   border: 2px solid var(--border);
   border-radius: 12px;
@@ -671,6 +676,7 @@ h4 {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
 }
 
