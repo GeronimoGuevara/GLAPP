@@ -57,9 +57,9 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Register error:', error);
-    if (error.message.includes('unique constraint')) {
+    if (error.message && error.message.includes('unique constraint')) {
       return res.status(400).json({ success: false, error: 'Este correo electrónico ya está registrado.' });
     }
-    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+    return res.status(500).json({ success: false, error: 'Error interno: ' + error.message });
   }
 }
