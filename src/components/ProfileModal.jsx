@@ -3,6 +3,8 @@ import { User, X, Camera, Lock, LogOut, CheckCircle, AlertCircle, Calendar } fro
 import toast from 'react-hot-toast';
 import { getPartner, updateUserPassword, updateUserAvatar } from '../lib/database';
 import { uploadImageToCloudinary } from '../lib/cloudinary';
+import PhotoGalleryModal from './PhotoGalleryModal';
+import { ImageIcon } from 'lucide-react';
 
 export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, onShowSummary }) {
   const [partner, setPartner] = useState(null);
@@ -15,6 +17,7 @@ export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, on
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
 
   useEffect(() => {
     async function fetchPartner() {
@@ -175,6 +178,19 @@ export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, on
 
           {/* Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <button 
+              onClick={() => setShowGallery(true)}
+              style={{ width: '100%', padding: '1rem', background: 'var(--surface)', border: 'none', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text)', cursor: 'pointer', textAlign: 'left', fontWeight: '500' }}
+            >
+              <div style={{ background: 'rgba(255,107,157,0.1)', color: 'var(--primary)', padding: '0.5rem', borderRadius: '50%', display: 'flex' }}>
+                <ImageIcon size={20} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '1rem' }}>Galería de Pareja</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>Fotos públicas y privadas</div>
+              </div>
+            </button>
+
             {isChangingPassword ? (
               <div style={{ background: 'var(--background)', borderRadius: '16px', padding: '1rem', marginBottom: '0.5rem' }}>
                 <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text)' }}>Cambiar Contraseña</h3>
@@ -235,6 +251,10 @@ export default function ProfileModal({ user, onClose, onLogout, onUserUpdate, on
           </div>
         </div>
       </div>
+      
+      {showGallery && (
+        <PhotoGalleryModal user={user} onClose={() => setShowGallery(false)} />
+      )}
     </div>
   );
 }

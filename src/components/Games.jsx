@@ -198,7 +198,7 @@ function MemoryGame({ user }) {
 
   const loadPhotos = async () => {
     if (!user?.couple_id) return;
-    const res = await getCouplePhotos(user.couple_id, 'memory_game');
+    const res = await getCouplePhotos(user.couple_id, 'unencrypted');
     if (res.success) {
       setPhotos(res.data);
     }
@@ -207,28 +207,6 @@ function MemoryGame({ user }) {
   useEffect(() => {
     loadPhotos();
   }, [user?.couple_id]);
-
-  const handleUploadPhoto = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    const loadingToast = toast.loading('Subiendo foto...');
-    try {
-      const url = await uploadImageToCloudinary(file);
-      const res = await addCouplePhoto(user.couple_id, user.id, url, 'memory_game');
-      if (res.success) {
-        toast.success('Foto añadida al juego', { id: loadingToast });
-        loadPhotos();
-      } else {
-        throw new Error(res.error);
-      }
-    } catch (error) {
-      toast.error('Error al subir: ' + error.message, { id: loadingToast });
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const initGame = () => {
     // Usar hasta 8 fotos, y rellenar con emojis si faltan
@@ -305,37 +283,37 @@ function MemoryGame({ user }) {
           <p>Completado en {moves} movimientos</p>
         </div>
       )}
-
-      <div className="memory-grid">
-        {cards.map((card, index) => (
-          <div
-            key={card.id}
-            className={`memory-card ${
-              flipped.includes(index) || matched.includes(index) ? 'flipped' : ''
-            }`}
-            onClick={() => handleClick(index)}
-          >
-            <div className="card-front">?</div>
-            <div className="card-back">
-              {card.type === 'emoji' ? card.content : (
-                <img src={card.content} alt="memoria" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
-              )}
-            </div>
+      
+      {!isWon ? (
+        <>
+          <div className="memory-grid">
+            {cards.map((card, index) => {
+              const isFlipped = flipped.includes(index) || matched.includes(index);
+              return (
+                <div 
+                  key={card.id} 
+                  className={`memory-card ${isFlipped ? 'flipped' : ''}`}
+                  onClick={() => handleClick(index)}
+                >
+                  <div className="card-front">?</div>
+                  <div className="card-back">
+                    {card.type === 'image' ? (
+                      <img src={card.content} alt="Memory" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
+                    ) : (
+                      <span>{card.content}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
-
-      <div className="memory-controls" style={{ marginTop: '2rem', textAlign: 'center' }}>
-        <h3>Personaliza tu juego</h3>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '1rem' }}>
-          Sube fotos de ustedes para reemplazar los emojis (hasta 8 fotos). {photos.length}/8 fotos.
-        </p>
-        <label className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', opacity: isUploading ? 0.7 : 1 }}>
-          <Camera size={20} />
-          {isUploading ? 'Subiendo...' : 'Añadir foto al juego'}
-          <input type="file" accept="image/*" onChange={handleUploadPhoto} disabled={isUploading || photos.length >= 8} style={{ display: 'none' }} />
-        </label>
-      </div>
+          {photos.length < 8 && (
+            <p style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '1.5rem' }}>
+              ℹ️ Añade más fotos "Públicas" desde la Galería en tu perfil para personalizar todas las cartas del juego.
+            </p>
+          )}
+        </>
+      ) : null}
     </div>
   );
 }
