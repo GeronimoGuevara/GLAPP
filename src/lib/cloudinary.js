@@ -1,4 +1,5 @@
 // Utilidades para Cloudinary y Encriptación (E2EE)
+import imageCompression from 'browser-image-compression';
 
 export async function uploadImageToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -68,7 +69,17 @@ async function deriveKey(masterKeyStr) {
 
 export async function encryptFile(file, encryptionKey) {
   const kek = await deriveKey(encryptionKey);
-  const fileBuffer = await file.arrayBuffer();
+  
+  // Comprimir imagen antes de encriptar para evitar congelamientos por fotos pesadas
+  const options = {
+    maxSizeMB: 1,
+    maxWidthOrHeight: 1200,
+    useWebWorker: true,
+    fileType: 'image/jpeg'
+  };
+  
+  const compressedFile = await imageCompression(file, options);
+  const fileBuffer = await compressedFile.arrayBuffer();
   
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await window.crypto.subtle.encrypt(
