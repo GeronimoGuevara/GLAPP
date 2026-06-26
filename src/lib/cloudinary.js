@@ -30,7 +30,14 @@ export async function uploadImageToCloudinary(file) {
 // END-TO-END ENCRYPTION PARA FOTOS ÍNTIMAS
 // ==========================================
 
+let cachedKey = null;
+let cachedMasterKeyStr = null;
+
 async function deriveKey(masterKeyStr) {
+  if (cachedKey && cachedMasterKeyStr === masterKeyStr) {
+    return cachedKey;
+  }
+  
   const enc = new TextEncoder();
   const keyMaterial = await window.crypto.subtle.importKey(
     'raw',
@@ -42,7 +49,7 @@ async function deriveKey(masterKeyStr) {
 
   const salt = enc.encode('glapp-intimate-salt-2026');
 
-  return window.crypto.subtle.deriveKey(
+  cachedKey = await window.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
       salt: salt,
@@ -54,6 +61,9 @@ async function deriveKey(masterKeyStr) {
     false,
     ['encrypt', 'decrypt']
   );
+  
+  cachedMasterKeyStr = masterKeyStr;
+  return cachedKey;
 }
 
 export async function encryptFile(file, encryptionKey) {
