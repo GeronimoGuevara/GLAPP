@@ -5,7 +5,7 @@ import { checkRateLimit } from './rate-limiter.js';
 
 const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET || 'glapp-super-secret-key-2026';
-const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require', max: 1 }) : null;
+const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require', max: 1, idle_timeout: 0, connect_timeout: 10, prepare: false }) : null;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

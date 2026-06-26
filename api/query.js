@@ -4,7 +4,14 @@ import { checkRateLimit } from './rate-limiter.js';
 
 const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET || 'glapp-super-secret-key-2026';
-const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require', max: 1 }) : null;
+// Optimización clave para Serverless y Connection Poolers (PgBouncer)
+const sql = DATABASE_URL ? postgres(DATABASE_URL, { 
+  ssl: 'require', 
+  max: 1, // Una conexión por instancia serverless
+  idle_timeout: 0, // No cerrar conexiones ociosas
+  connect_timeout: 10,
+  prepare: false // Obligatorio para PgBouncer en Transaction Mode
+}) : null;
 
 export default async function handler(req, res) {
   // Configurar CORS por si se llama desde otro origen

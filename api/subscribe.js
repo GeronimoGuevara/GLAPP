@@ -1,7 +1,7 @@
 import postgres from 'postgres';
 
 const DATABASE_URL = process.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
-const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require', max: 1 }) : null;
+const sql = DATABASE_URL ? postgres(DATABASE_URL, { ssl: 'require', max: 1, idle_timeout: 0, connect_timeout: 10, prepare: false }) : null;
 
 export default async function handler(req, res) {
   // CORS check (Vercel automatically handles some, but good to be safe)
