@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { Calendar, Plus, Settings, Heart, Edit2, Trash2, X, Droplets, Activity, StickyNote, Flame } from 'lucide-react';
 import { addCycle, getCycles, updateCycle, deleteCycle, getCycleSettings, saveCycleSettings, addCycleNote, getCycleNotes, deleteCycleNote, updateCycleNote, getIntimateMoments, deleteIntimateMoment, updateIntimateMoment } from '../lib/database';
 import { format, addDays, differenceInDays, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, addMonths, getDay, isValid, isWithinInterval, subDays } from 'date-fns';
@@ -6,12 +7,37 @@ import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 
 export default function CycleTracker({ user }) {
-  const [cycles, setCycles] = useState([]);
-  const [cycleNotes, setCycleNotes] = useState([]);
-  const [intimateMoments, setIntimateMoments] = useState([]);
-  const [settings, setSettings] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const currentMonthStartStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+  const currentMonthEndStr = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+
+  const { data: cyclesResult, mutate: mutateCycles } = useSWR(
+    user?.couple_id ? ['getCycles', user.couple_id] : null,
+    ([_, id]) => getCycles(id, 50)
+  );
+
+  const { data: settingsResult, mutate: mutateSettings } = useSWR(
+    user?.couple_id ? ['getCycleSettings', user.couple_id] : null,
+    ([_, id]) => getCycleSettings(id)
+  );
+
+  const { data: notesResult, mutate: mutateNotes } = useSWR(
+    user?.couple_id ? ['getCycleNotes', user.couple_id, currentMonthStartStr, currentMonthEndStr] : null,
+    ([_, id, start, end]) => getCycleNotes(id, start, end)
+  );
+
+  const { data: intimateResult, mutate: mutateIntimate } = useSWR(
+    user?.couple_id ? ['getIntimateMoments', user.couple_id, 'cycle'] : null,
+    ([_, id]) => getIntimateMoments(id, 100)
+  );
+
+  const cycles = cyclesResult?.success && Array.isArray(cyclesResult.data) ? cyclesResult.data : [];
+  const settings = settingsResult?.success ? settingsResult.data : null;
+  const cycleNotes = notesResult?.success && Array.isArray(notesResult.data) ? notesResult.data : [];
+  const intimateMoments = intimateResult?.success && Array.isArray(intimateResult.data) ? intimateResult.data : [];
+
+  const loading = !cyclesResult || !settingsResult || !notesResult || !intimateResult;
+
   const [showConfig, setShowConfig] = useState(false);
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
@@ -54,52 +80,24 @@ export default function CycleTracker({ user }) {
   });
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (settingsResult && settingsResult.success && settingsResult.data) {
+      const data = settingsResult.data;
+      setConfigForm(prev => ({
+        ...prev,
+        periodDuration: data.period_duration || 5,
+        cycleDuration: data.cycle_duration || 28,
+        lastPeriodStart: prev.lastPeriodStart || data.last_period_start || ''
+      }));
+    } else if (settingsResult && !settingsResult.success) {
+      setShowConfig(true);
+    }
+  }, [settingsResult]);
 
   const loadData = async () => {
-    setLoading(true);
-    try {
-      // Cargar ciclos
-      const cyclesResult = await getCycles(user.couple_id, 50);
-      if (cyclesResult.success && Array.isArray(cyclesResult.data)) {
-        setCycles(cyclesResult.data);
-      }
-      
-      // Cargar configuración
-      const settingsResult = await getCycleSettings(user.couple_id);
-      if (settingsResult.success && settingsResult.data) {
-        setSettings(settingsResult.data);
-        // Si hay configuración, precargar el formulario
-        setConfigForm({
-          periodDuration: settingsResult.data.period_duration || 5,
-          cycleDuration: settingsResult.data.cycle_duration || 28,
-          lastPeriodStart: settingsResult.data.last_period_start || '',
-          lastPeriodEnd: ''
-        });
-      } else {
-        // Si no hay configuración, pedir que la complete
-        setShowConfig(true);
-      }
-      
-      // Cargar notas del mes actual
-      const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
-      const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
-      const notesResult = await getCycleNotes(user.couple_id, monthStart, monthEnd);
-      if (notesResult.success && Array.isArray(notesResult.data)) {
-        setCycleNotes(notesResult.data);
-      }
-      
-      // Cargar momentos íntimos
-      const intimateResult = await getIntimateMoments(user.couple_id, 100);
-      if (intimateResult.success && Array.isArray(intimateResult.data)) {
-        setIntimateMoments(intimateResult.data);
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
+    mutateCycles();
+    mutateSettings();
+    mutateNotes();
+    mutateIntimate();
   };
 
   const handleSaveConfig = async (e) => {

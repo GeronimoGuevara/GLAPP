@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Heart, Calendar, Flame, Utensils, Lightbulb, Gamepad2, Pill } from 'lucide-react';
 import Login from './components/Login';
-import CycleTracker from './components/CycleTracker';
-import IntimateTracker from './components/IntimateTracker';
-import DateIdeas from './components/DateIdeas';
-import MealIdeas from './components/MealIdeas';
-import Games from './components/Games';
-import MedicationTracker from './components/MedicationTracker';
 import MonthlySummaryModal from './components/MonthlySummaryModal';
+import { Suspense, lazy } from 'react';
 import './styles/App.css';
+
+const CycleTracker = lazy(() => import('./components/CycleTracker'));
+const IntimateTracker = lazy(() => import('./components/IntimateTracker'));
+const DateIdeas = lazy(() => import('./components/DateIdeas'));
+const MealIdeas = lazy(() => import('./components/MealIdeas'));
+const Games = lazy(() => import('./components/Games'));
+const MedicationTracker = lazy(() => import('./components/MedicationTracker'));
 import { Toaster } from 'react-hot-toast';
 import { initializeTables, getCycles, getIntimateMoments, getCycleSettings, getMonthlySummary } from './lib/database';
 import ProfileModal from './components/ProfileModal';
@@ -210,7 +212,13 @@ function App() {
       )}
 
       <main className="app-main">
-        {renderView()}
+        <Suspense fallback={
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--primary)' }}>
+            <Heart size={32} className="spinner" />
+          </div>
+        }>
+          {renderView()}
+        </Suspense>
       </main>
 
       <nav className="app-nav">

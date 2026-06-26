@@ -5,11 +5,23 @@ import { format, parseISO, differenceInDays, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { uploadEncryptedImage } from '../lib/cloudinary';
+import useSWR from 'swr';
 import EncryptedImage from './EncryptedImage';
 
 export default function IntimateTracker({ user }) {
-  const [moments, setMoments] = useState([]);
-  const [encryptionKey, setEncryptionKey] = useState(null);
+  const { data: momentsResult, mutate: loadMoments } = useSWR(
+    user?.couple_id ? ['getIntimateMoments', user.couple_id] : null,
+    ([_, id]) => getIntimateMoments(id, 50)
+  );
+  
+  const { data: encryptionKey } = useSWR(
+    user?.couple_id ? ['getEncryptionKey', user.couple_id] : null,
+    ([_, id]) => getEncryptionKey(id),
+    { revalidateOnFocus: false, revalidateIfStale: false }
+  );
+
+  const moments = momentsResult?.success ? momentsResult.data : [];
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMoment, setEditingMoment] = useState(null);
   const [newMoment, setNewMoment] = useState({
@@ -28,18 +40,6 @@ export default function IntimateTracker({ user }) {
   });
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [fullscreenImage, setFullscreenImage] = useState(null);
-
-  useEffect(() => {
-    loadMoments();
-    getEncryptionKey(user.couple_id).then(key => setEncryptionKey(key));
-  }, [user.couple_id]);
-
-  const loadMoments = async () => {
-    const result = await getIntimateMoments(user.couple_id, 50);
-    if (result.success) {
-      setMoments(result.data);
-    }
-  };
 
   const handleAddMoment = async (e) => {
     e.preventDefault();

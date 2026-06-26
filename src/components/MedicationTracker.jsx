@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import toast from 'react-hot-toast';
 import { Plus, Pill, Clock, Bell, BellOff, Trash2, Edit2, Check, X } from 'lucide-react';
 import { 
@@ -14,8 +15,23 @@ import { es } from 'date-fns/locale';
 import { checkNotificationPermission, testRealPushNotification } from '../lib/notifications';
 
 export default function MedicationTracker({ user }) {
-  const [medications, setMedications] = useState([]);
-  const [history, setHistory] = useState([]);
+  const { data: medsResult, mutate: loadMedications } = useSWR(
+    user?.id ? ['getMedications', user.id] : null,
+    ([_, id]) => getMedications(id)
+  );
+
+  const { data: historyResult, mutate: loadHistory } = useSWR(
+    user?.id ? ['getMedicationHistory', user.id] : null,
+    ([_, id]) => getMedicationHistory(id, 30)
+  );
+
+  const medications = medsResult?.success ? medsResult.data.map(med => ({
+    ...med,
+    times: typeof med.times === 'string' ? JSON.parse(med.times) : med.times
+  })) : [];
+  
+  const history = historyResult?.success ? historyResult.data : [];
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -30,32 +46,12 @@ export default function MedicationTracker({ user }) {
   });
 
   useEffect(() => {
-    loadMedications();
-    loadHistory();
     if (user.id) {
       checkNotificationPermission(false, user.id).then(enabled => {
         setNotificationsEnabled(enabled);
       });
     }
   }, [user.id]);
-
-  const loadMedications = async () => {
-    const result = await getMedications(user.id);
-    if (result.success) {
-      const parsed = result.data.map(med => ({
-        ...med,
-        times: JSON.parse(med.times)
-      }));
-      setMedications(parsed);
-    }
-  };
-
-  const loadHistory = async () => {
-    const result = await getMedicationHistory(user.id, 30);
-    if (result.success) {
-      setHistory(result.data);
-    }
-  };
 
   const handleAddTime = () => {
     setNewMed({
