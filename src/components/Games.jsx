@@ -198,7 +198,7 @@ function MemoryGame({ user }) {
 
   const loadPhotos = async () => {
     if (!user?.couple_id) return;
-    const res = await getCouplePhotos(user.couple_id, 'unencrypted');
+    const res = await getCouplePhotos(user.couple_id, 'unencrypted', 8);
     if (res.success) {
       setPhotos(res.data);
     }
@@ -444,3 +444,4 @@ function CoupleCompetitions({ user }) {
     </div>
   );
 }
+

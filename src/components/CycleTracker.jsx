@@ -242,7 +242,7 @@ export default function CycleTracker({ user }) {
     
     const datetime = `${editIntimateForm.date}T${editIntimateForm.time}:00`;
     const protection = editIntimateForm.protection === 'none' ? null : editIntimateForm.protection;
-    const result = await updateIntimateMoment(editingIntimate.id, datetime, editIntimateForm.notes, protection);
+    const result = await updateIntimateMoment(editingIntimate.id, user.couple_id, datetime, editIntimateForm.notes, protection);
     
     if (result.success) {
       loadData();
@@ -254,11 +254,15 @@ export default function CycleTracker({ user }) {
   };
 
   const handleDeleteIntimate = async (momentId) => {
-    if (!confirm('Â¿Eliminar este momento Ã­ntimo?')) return;
+    if (!confirm('¿Eliminar este momento íntimo?')) return;
     try {
-      await deleteIntimateMoment(momentId);
-      loadData();
-      toast.success('Momento eliminado');
+      const result = await deleteIntimateMoment(momentId, user.couple_id);
+      if (result.success) {
+        loadData();
+        toast.success('Momento eliminado');
+      } else {
+        toast.error('Error al eliminar: ' + (result.error || 'Desconocido'));
+      }
     } catch (error) {
       toast.error('Error al eliminar');
     }

@@ -12,7 +12,7 @@ const MealIdeas = lazy(() => import('./components/MealIdeas'));
 const Games = lazy(() => import('./components/Games'));
 const MedicationTracker = lazy(() => import('./components/MedicationTracker'));
 import { Toaster } from 'react-hot-toast';
-import { initializeTables, getCycles, getIntimateMoments, getCycleSettings, getMonthlySummary } from './lib/database';
+import { getDashboardData, getMonthlySummary } from './lib/database';
 import ProfileModal from './components/ProfileModal';
 
 
@@ -43,21 +43,6 @@ function App() {
 
   // Verificar si hay usuario guardado en localStorage
   useEffect(() => {
-    const initDb = async () => {
-      try {
-        console.log("Iniciando creación de tablas...");
-        const result = await initializeTables();
-        if (result.success) {
-          console.log("¡Tablas inicializadas OK!");
-        } else {
-          console.error("Fallo al crear las tablas:", result.error);
-        }
-      } catch (err) {
-        console.error("Error inesperado al crear tablas:", err);
-      }
-    };
-
-    initDb();
 
     // Check for monthly summary
     const checkSummary = async () => {
@@ -285,38 +270,13 @@ function Home({ user, setActiveView }) {
     async function loadDashboardData() {
       try {
         setIsLoading(true);
-        const cyclesRes = await getCycles(user.couple_id, 1);
-        const settingsRes = await getCycleSettings(user.couple_id);
-        
-        if (cyclesRes.success && cyclesRes.data.length > 0) {
-          const lastCycle = cyclesRes.data[0];
-          const cycleLength = (settingsRes.success && settingsRes.data?.cycle_duration) ? settingsRes.data.cycle_duration : 28;
-          const startDate = new Date(lastCycle.start_date);
-          const nextCycleDate = new Date(startDate);
-          nextCycleDate.setDate(startDate.getDate() + cycleLength);
-          
-          const today = new Date();
-          const diffTime = nextCycleDate - today;
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          
-          setNextCycleDays(diffDays);
-        } else {
-          setNextCycleDays('No hay registro');
+        const result = await getDashboardData(user.couple_id, user.id);
+        if (!result.success) {
+          throw new Error(result.error);
         }
 
-        const momentsRes = await getIntimateMoments(user.couple_id, 1);
-        if (momentsRes.success && momentsRes.data.length > 0) {
-          const lastMoment = momentsRes.data[0];
-          const momentDate = new Date(lastMoment.moment_date);
-          const today = new Date();
-          const diffTime = today - momentDate;
-          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-          
-          setLastMomentDays(diffDays);
-        } else {
-          setLastMomentDays('No hay registro');
-        }
-
+        setNextCycleDays(result.data.nextCycleDays ?? 'No hay registro');
+        setLastMomentDays(result.data.lastMomentDays ?? 'No hay registro');
       } catch (error) {
         console.error("Error al cargar datos del dashboard:", error);
         setNextCycleDays('No hay registro');
@@ -326,7 +286,7 @@ function Home({ user, setActiveView }) {
       }
     }
     
-    if (user && user.id) {
+    if (user && user.id && user.couple_id) {
       loadDashboardData();
     }
   }, [user]);
@@ -438,3 +398,5 @@ function Home({ user, setActiveView }) {
 }
 
 export default App;
+
+

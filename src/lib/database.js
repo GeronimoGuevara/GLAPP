@@ -408,11 +408,13 @@ export async function getIntimateMoments(coupleId, limit = 50) {
   }
   
   try {
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
     const result = await sql`
-      SELECT * FROM intimate_moments
-      WHERE couple_id = ${coupleId} OR couple_id IS NULL
+      SELECT id, couple_id, moment_date, notes, protection, image_url, created_at
+      FROM intimate_moments
+      WHERE couple_id = ${coupleId}
       ORDER BY moment_date DESC
-      LIMIT ${limit}
+      LIMIT ${safeLimit}
     `;
     return { success: true, data: result };
   } catch (error) {
@@ -429,9 +431,11 @@ export async function getIntimateMomentsByMonth(coupleId, monthStart, monthEnd) 
   
   try {
     const result = await sql`
-      SELECT * FROM intimate_moments
-      WHERE (couple_id = ${coupleId} OR couple_id IS NULL)
-      AND moment_date >= ${monthStart} AND moment_date < ${monthEnd}
+      SELECT id, couple_id, moment_date, notes, protection, image_url, created_at
+      FROM intimate_moments
+      WHERE couple_id = ${coupleId}
+        AND moment_date >= ${monthStart}
+        AND moment_date < ${monthEnd}
       ORDER BY moment_date DESC
     `;
     return { success: true, data: result };
@@ -441,9 +445,7 @@ export async function getIntimateMomentsByMonth(coupleId, monthStart, monthEnd) 
   }
 }
 
-
-
-export async function updateIntimateMoment(momentId, momentDate, notes = '', protection = null, image_url = null) {
+export async function updateIntimateMoment(momentId, coupleId, momentDate, notes = '', protection = null, image_url = null) {
   if (!sql) {
     console.error('Database no disponible');
     return { success: false, error: 'Database no configurada' };
@@ -453,9 +455,12 @@ export async function updateIntimateMoment(momentId, momentDate, notes = '', pro
     const result = await sql`
       UPDATE intimate_moments
       SET moment_date = ${momentDate}, notes = ${notes}, protection = ${protection}, image_url = COALESCE(${image_url}, image_url)
-      WHERE id = ${momentId}
+      WHERE id = ${momentId} AND couple_id = ${coupleId}
       RETURNING *
     `;
+    if (result.length === 0) {
+      return { success: false, error: 'Momento no encontrado o sin permiso para editarlo' };
+    }
     return { success: true, data: result };
   } catch (error) {
     console.error('Error updating intimate moment:', error);
@@ -463,7 +468,7 @@ export async function updateIntimateMoment(momentId, momentDate, notes = '', pro
   }
 }
 
-export async function deleteIntimateMoment(momentId) {
+export async function deleteIntimateMoment(momentId, coupleId) {
   if (!sql) {
     console.error('Database no disponible');
     return { success: false, error: 'Database no configurada' };
@@ -472,9 +477,12 @@ export async function deleteIntimateMoment(momentId) {
   try {
     const result = await sql`
       DELETE FROM intimate_moments
-      WHERE id = ${momentId}
+      WHERE id = ${momentId} AND couple_id = ${coupleId}
       RETURNING *
     `;
+    if (result.length === 0) {
+      return { success: false, error: 'Momento no encontrado o ya eliminado' };
+    }
     return { success: true, data: result };
   } catch (error) {
     console.error('Error deleting intimate moment:', error);
@@ -1049,71 +1057,96 @@ function generateInviteCode(length = 6) {
   return result;
 }
 
+export async function getDashboardData(coupleId, userId) {
+  if (!DATABASE_URL) {
+    return { success: false, error: 'Database no configurada' };
+  }
+
+  try {
+    const token = localStorage.getItem('glapp_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const response = await fetch('/api/dashboard', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ coupleId, userId })
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Error cargando dashboard');
+    }
+
+    return { success: true, data: data.data };
+  } catch (error) {
+    console.error('Error getting dashboard data:', error);
+    return { success: false, error: error.message };
+  }
+}
 export async function getMonthlySummary(coupleId, year, month) {
   if (!sql) return { success: false, error: 'Database no configurada' };
   try {
-    const padMonth = month.toString().padStart(2, '0');
-    const prefix = `${year}-${padMonth}`;
+    const monthStart = new Date(year, month - 1, 1).toISOString();
+    const monthEnd = new Date(year, month, 1).toISOString();
     
-    // Actividad íntima
-    const intimate = await sql`
-      SELECT COUNT(*) as count 
-      FROM intimate_moments 
-      WHERE couple_id = ${coupleId} 
-      AND TO_CHAR(moment_date, 'YYYY-MM') = ${prefix}
-    `;
-    
-    // Juegos (Memoria Emoji) mejor puntaje por jugador en el mes
-    const games = await sql`
-      SELECT player_name, MIN(score) as best_score
-      FROM game_scores
-      WHERE couple_id = ${coupleId}
-      AND game_name = 'Memoria Emoji'
-      AND TO_CHAR(played_at, 'YYYY-MM') = ${prefix}
-      GROUP BY player_name
-      ORDER BY best_score ASC
-    `;
+    const [intimate, games, activeComps] = await Promise.all([
+      sql`
+        SELECT COUNT(*) as count 
+        FROM intimate_moments 
+        WHERE couple_id = ${coupleId} 
+          AND moment_date >= ${monthStart}
+          AND moment_date < ${monthEnd}
+      `,
+      sql`
+        SELECT player_name, MIN(score) as best_score
+        FROM game_scores
+        WHERE couple_id = ${coupleId}
+          AND game_name = 'Memoria Emoji'
+          AND played_at >= ${monthStart}
+          AND played_at < ${monthEnd}
+        GROUP BY player_name
+        ORDER BY best_score ASC
+      `,
+      sql`
+        SELECT * FROM competitions WHERE couple_a_id = ${coupleId} OR couple_b_id = ${coupleId}
+      `
+    ]);
 
-    // Obtener competencias de ligas (vs otras parejas) y sus resultados del mes
-    const activeComps = await sql`
-      SELECT * FROM competitions WHERE couple_a_id = ${coupleId} OR couple_b_id = ${coupleId}
-    `;
-
-    const leaguesData = [];
-    
-    for (const comp of activeComps) {
-      if (!comp.couple_b_id) continue; // Si nadie se unió, no hay liga aún
-      
+    const joinedComps = activeComps.filter(comp => comp.couple_b_id);
+    const leaguesData = await Promise.all(joinedComps.map(async comp => {
       const opponentId = comp.couple_a_id === coupleId ? comp.couple_b_id : comp.couple_a_id;
-      
-      // Obtener mejor score global de nuestra pareja
-      const myCoupleBest = await sql`
-        SELECT MIN(score) as best FROM game_scores 
-        WHERE couple_id = ${coupleId} AND game_name = 'Memoria Emoji' AND TO_CHAR(played_at, 'YYYY-MM') = ${prefix}
-      `;
-      
-      // Obtener mejor score global de pareja rival
-      const opponentBest = await sql`
-        SELECT MIN(score) as best FROM game_scores 
-        WHERE couple_id = ${opponentId} AND game_name = 'Memoria Emoji' AND TO_CHAR(played_at, 'YYYY-MM') = ${prefix}
-      `;
+      const [myCoupleBest, opponentBest, opponentUsers] = await Promise.all([
+        sql`
+          SELECT MIN(score) as best FROM game_scores 
+          WHERE couple_id = ${coupleId}
+            AND game_name = 'Memoria Emoji'
+            AND played_at >= ${monthStart}
+            AND played_at < ${monthEnd}
+        `,
+        sql`
+          SELECT MIN(score) as best FROM game_scores 
+          WHERE couple_id = ${opponentId}
+            AND game_name = 'Memoria Emoji'
+            AND played_at >= ${monthStart}
+            AND played_at < ${monthEnd}
+        `,
+        sql`SELECT array_agg(name) as names FROM users WHERE couple_id = ${opponentId}`
+      ]);
 
-      // Obtener nombres de la pareja rival
-      const opponentUsers = await sql`SELECT array_agg(name) as names FROM users WHERE couple_id = ${opponentId}`;
-      
-      leaguesData.push({
+      return {
         opponentNames: opponentUsers[0]?.names?.join(' & ') || 'Pareja Rival',
         myBest: myCoupleBest[0]?.best || null,
         opponentBest: opponentBest[0]?.best || null,
         invite_code: comp.invite_code
-      });
-    }
+      };
+    }));
     
     return { 
       success: true, 
       data: {
         intimateCount: parseInt(intimate[0]?.count || 0),
-        memoryGame: games, // array of {player_name, best_score} ordered by best_score asc
+        memoryGame: games,
         leagues: leaguesData
       } 
     };
@@ -1308,14 +1341,26 @@ export async function addCouplePhoto(coupleId, userId, url, category = 'general'
   }
 }
 
-export async function getCouplePhotos(coupleId, category = null) {
+export async function getCouplePhotos(coupleId, category = null, limit = 50, offset = 0) {
   if (!sql) return { success: false, error: 'Database no configurada', data: [] };
   try {
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+    const safeOffset = Math.max(Number(offset) || 0, 0);
     let result;
     if (category) {
-      result = await sql`SELECT * FROM couple_photos WHERE couple_id = ${coupleId} AND category = ${category} ORDER BY created_at DESC`;
+      result = await sql`
+        SELECT * FROM couple_photos
+        WHERE couple_id = ${coupleId} AND category = ${category}
+        ORDER BY created_at DESC
+        LIMIT ${safeLimit} OFFSET ${safeOffset}
+      `;
     } else {
-      result = await sql`SELECT * FROM couple_photos WHERE couple_id = ${coupleId} ORDER BY created_at DESC`;
+      result = await sql`
+        SELECT * FROM couple_photos
+        WHERE couple_id = ${coupleId}
+        ORDER BY created_at DESC
+        LIMIT ${safeLimit} OFFSET ${safeOffset}
+      `;
     }
     return { success: true, data: result };
   } catch (error) {
@@ -1323,7 +1368,6 @@ export async function getCouplePhotos(coupleId, category = null) {
     return { success: false, error: error.message, data: [] };
   }
 }
-
 export async function deleteCouplePhoto(photoId) {
   if (!sql) return { success: false, error: 'Database no configurada' };
   try {
@@ -1334,3 +1378,4 @@ export async function deleteCouplePhoto(photoId) {
     return { success: false, error: error.message };
   }
 }
+

@@ -97,7 +97,7 @@ export default function IntimateTracker({ user }) {
         toast.dismiss(loadingToast);
       }
       
-      const result = await updateIntimateMoment(editingMoment.id, datetime, editMoment.notes, protection, imageUrl);
+      const result = await updateIntimateMoment(editingMoment.id, user.couple_id, datetime, editMoment.notes, protection, imageUrl);
       
       if (result.success) {
         loadMoments();
@@ -114,12 +114,24 @@ export default function IntimateTracker({ user }) {
   };
 
   const handleDeleteMoment = async (momentId) => {
-    if (!confirm('Â¿EstÃ¡s segura de que quieres eliminar este momento?')) return;
-    
-    const result = await deleteIntimateMoment(momentId);
+    if (!confirm('¿Estás segura de que quieres eliminar este momento?')) return;
+
+    const previous = momentsResult;
+    loadMoments(current => {
+      if (!current?.success || !Array.isArray(current.data)) return current;
+      return {
+        ...current,
+        data: current.data.filter(moment => moment.id !== momentId)
+      };
+    }, false);
+
+    const result = await deleteIntimateMoment(momentId, user.couple_id);
     if (result.success) {
-      loadMoments();
       toast.success('Momento eliminado');
+      loadMoments();
+    } else {
+      loadMoments(previous, false);
+      toast.error('Error al eliminar: ' + (result.error || 'Desconocido'));
     }
   };
 
@@ -484,45 +496,9 @@ export default function IntimateTracker({ user }) {
                       
                       {/* Imagen movida fuera de moment-info para que ocupe todo el ancho */}
                       {moment.image_url && (
-                        <div style={{ position: 'relative', width: '100%', marginTop: '1rem', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
-                          <EncryptedImage 
-                            url={moment.image_url} 
-                            encryptionKey={encryptionKey} 
-                            style={{ 
-                              filter: 'blur(20px)', 
-                              transform: 'scale(1.1)', 
-                              transition: 'filter 0.3s', 
-                              cursor: 'pointer', 
-                              width: '100%', 
-                              height: 'auto', 
-                              display: 'block' 
-                            }}
-                          />
-                          <div style={{ 
-                            position: 'absolute', 
-                            top: 0, left: 0, right: 0, bottom: 0, 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            pointerEvents: 'none', 
-                            background: 'rgba(0,0,0,0.1)' 
-                          }}>
-                            <span style={{ 
-                              background: 'rgba(255, 255, 255, 0.85)', 
-                              color: '#333', 
-                              padding: '0.5rem 1.25rem', 
-                              borderRadius: '30px', 
-                              fontWeight: '600', 
-                              fontSize: '0.85rem', 
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.5rem'
-                            }}>
-                              <Flame size={16} color="var(--primary)" />
-                              Entra para ver la foto
-                            </span>
-                          </div>
+                        <div style={{ width: '100%', marginTop: '1rem', borderRadius: '12px', border: '1px dashed var(--border)', background: 'var(--surface)', color: 'var(--text-light)', padding: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                          <ImageIcon size={18} />
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Foto privada guardada</span>
                         </div>
                       )}
                     </div>

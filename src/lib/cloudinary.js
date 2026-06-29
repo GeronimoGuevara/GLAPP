@@ -1,7 +1,32 @@
-// Utilidades para Cloudinary y Encriptación (E2EE)
+// Utilidades para Cloudinary y encriptacion E2EE
 import imageCompression from 'browser-image-compression';
 
-export async function uploadImageToCloudinary(file) {
+const DEFAULT_IMAGE_COMPRESSION = {
+  maxSizeMB: 1,
+  maxWidthOrHeight: 1600,
+  useWebWorker: true,
+  fileType: 'image/jpeg',
+  initialQuality: 0.82
+};
+
+const ENCRYPTED_IMAGE_COMPRESSION = {
+  maxSizeMB: 1,
+  maxWidthOrHeight: 1200,
+  useWebWorker: true,
+  fileType: 'image/jpeg',
+  initialQuality: 0.82
+};
+
+function isCompressibleImage(file) {
+  return file instanceof Blob && typeof file.type === 'string' && file.type.startsWith('image/');
+}
+
+export async function compressImageFile(file, options = DEFAULT_IMAGE_COMPRESSION) {
+  if (!isCompressibleImage(file)) return file;
+  return imageCompression(file, options);
+}
+
+export async function uploadImageToCloudinary(file, { compress = true } = {}) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
@@ -9,8 +34,9 @@ export async function uploadImageToCloudinary(file) {
     throw new Error('Variables de entorno de Cloudinary no configuradas.');
   }
 
+  const uploadFile = compress ? await compressImageFile(file) : file;
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', uploadFile);
   formData.append('upload_preset', uploadPreset);
 
   const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
@@ -28,7 +54,7 @@ export async function uploadImageToCloudinary(file) {
 }
 
 // ==========================================
-// END-TO-END ENCRYPTION PARA FOTOS ÍNTIMAS
+// End-to-end encryption para fotos privadas
 // ==========================================
 
 let cachedKey = null;
@@ -69,16 +95,7 @@ async function deriveKey(masterKeyStr) {
 
 export async function encryptFile(file, encryptionKey) {
   const kek = await deriveKey(encryptionKey);
-  
-  // Comprimir imagen antes de encriptar para evitar congelamientos por fotos pesadas
-  const options = {
-    maxSizeMB: 1,
-    maxWidthOrHeight: 1200,
-    useWebWorker: true,
-    fileType: 'image/jpeg'
-  };
-  
-  const compressedFile = await imageCompression(file, options);
+  const compressedFile = await compressImageFile(file, ENCRYPTED_IMAGE_COMPRESSION);
   const fileBuffer = await compressedFile.arrayBuffer();
   
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
@@ -100,7 +117,7 @@ export async function encryptFile(file, encryptionKey) {
 
 export async function decryptImage(url, encryptionKey) {
   try {
-    if (!encryptionKey) throw new Error('Llave de encriptación no proporcionada');
+    if (!encryptionKey) throw new Error('Llave de encriptacion no proporcionada');
     
     const key = await deriveKey(encryptionKey);
     const response = await fetch(url);
@@ -120,7 +137,7 @@ export async function decryptImage(url, encryptionKey) {
         ciphertext
       );
     } else {
-      console.warn("Formato antiguo detectado. No se puede desencriptar con la nueva Master Key.");
+      console.warn('Formato antiguo detectado. No se puede desencriptar con la Master Key actual.');
       return null;
     }
 
@@ -134,11 +151,11 @@ export async function decryptImage(url, encryptionKey) {
 
 export async function uploadEncryptedImage(file, encryptionKey) {
   try {
-    if (!encryptionKey) throw new Error('Llave de encriptación requerida');
+    if (!encryptionKey) throw new Error('Llave de encriptacion requerida');
     
     const encryptedBlob = await encryptFile(file, encryptionKey);
     const encryptedFile = new File([encryptedBlob], file.name + '.enc', { type: 'application/octet-stream' });
-    const url = await uploadImageToCloudinary(encryptedFile);
+    const url = await uploadImageToCloudinary(encryptedFile, { compress: false });
     return url;
   } catch (error) {
     console.error('Error en uploadEncryptedImage:', error);

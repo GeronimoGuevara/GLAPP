@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Image as ImageIcon, Lock, Trash2, Camera, Plus } from 'lucide-react';
 import useSWR from 'swr';
 import toast from 'react-hot-toast';
@@ -6,18 +6,28 @@ import { getCouplePhotos, addCouplePhoto, deleteCouplePhoto, getEncryptionKey } 
 import { uploadImageToCloudinary, uploadEncryptedImage } from '../lib/cloudinary';
 import EncryptedImage from './EncryptedImage';
 
+const PAGE_SIZE = 24;
+
 export default function PhotoGalleryModal({ user, onClose }) {
   const [activeTab, setActiveTab] = useState('unencrypted'); // 'unencrypted' or 'encrypted'
   const [isUploading, setIsUploading] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState(null);
+  const [photoLimit, setPhotoLimit] = useState(PAGE_SIZE);
+
+  useEffect(() => {
+    setPhotoLimit(PAGE_SIZE);
+  }, [activeTab]);
 
   // SWR Fetching
   const { data: photosResult, mutate: loadPhotos } = useSWR(
-    user?.couple_id ? ['getCouplePhotos', user.couple_id, activeTab] : null,
-    ([_, id, cat]) => getCouplePhotos(id, cat)
+    user?.couple_id ? ['getCouplePhotos', user.couple_id, activeTab, photoLimit] : null,
+    ([_, id, cat, limit]) => getCouplePhotos(id, cat, limit + 1),
+    { revalidateOnFocus: false }
   );
 
-  const photos = photosResult?.data || [];
+  const rawPhotos = photosResult?.data || [];
+  const hasMorePhotos = rawPhotos.length > photoLimit;
+  const photos = hasMorePhotos ? rawPhotos.slice(0, photoLimit) : rawPhotos;
 
   // Get encryption key using SWR (cached)
   const { data: encryptionKey } = useSWR(
@@ -167,6 +177,17 @@ export default function PhotoGalleryModal({ user, onClose }) {
               </div>
             ))}
           </div>
+
+          {hasMorePhotos && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setPhotoLimit(limit => limit + PAGE_SIZE)}
+              style={{ width: '100%', marginTop: '1rem' }}
+            >
+              Cargar mas fotos
+            </button>
+          )}
         </div>
       </div>
 
@@ -190,3 +211,4 @@ export default function PhotoGalleryModal({ user, onClose }) {
     </div>
   );
 }
+
