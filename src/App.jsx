@@ -83,7 +83,8 @@ function App() {
       }
     };
 
-    checkSummary();
+    const summaryTimer = setTimeout(checkSummary, 1500);
+    return () => clearTimeout(summaryTimer);
   }, [currentUser]);
 
   const handleCloseMonthlySummary = () => {
@@ -262,25 +263,55 @@ function App() {
 }
 
 function Home({ user, setActiveView }) {
-  const [nextCycleDays, setNextCycleDays] = useState(null);
-  const [lastMomentDays, setLastMomentDays] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const dashboardCacheKey = user?.couple_id ? `dashboard_${user.couple_id}` : null;
+  const getCachedDashboard = () => {
+    if (!dashboardCacheKey) return null;
+    try {
+      const cached = localStorage.getItem(dashboardCacheKey);
+      return cached ? JSON.parse(cached) : null;
+    } catch (error) {
+      localStorage.removeItem(dashboardCacheKey);
+      return null;
+    }
+  };
+
+  const cachedDashboard = getCachedDashboard();
+  const [nextCycleDays, setNextCycleDays] = useState(() => cachedDashboard?.nextCycleDays ?? null);
+  const [lastMomentDays, setLastMomentDays] = useState(() => cachedDashboard?.lastMomentDays ?? null);
+  const [isLoading, setIsLoading] = useState(() => !cachedDashboard);
 
   useEffect(() => {
     async function loadDashboardData() {
-      try {
+      const cached = getCachedDashboard();
+      if (cached) {
+        setNextCycleDays(cached.nextCycleDays ?? 'No hay registro');
+        setLastMomentDays(cached.lastMomentDays ?? 'No hay registro');
+        setIsLoading(false);
+      } else {
         setIsLoading(true);
+      }
+
+      try {
         const result = await getDashboardData(user.couple_id, user.id);
         if (!result.success) {
           throw new Error(result.error);
         }
 
-        setNextCycleDays(result.data.nextCycleDays ?? 'No hay registro');
-        setLastMomentDays(result.data.lastMomentDays ?? 'No hay registro');
+        const freshDashboard = {
+          nextCycleDays: result.data.nextCycleDays ?? 'No hay registro',
+          lastMomentDays: result.data.lastMomentDays ?? 'No hay registro',
+          savedAt: Date.now()
+        };
+
+        localStorage.setItem(dashboardCacheKey, JSON.stringify(freshDashboard));
+        setNextCycleDays(freshDashboard.nextCycleDays);
+        setLastMomentDays(freshDashboard.lastMomentDays);
       } catch (error) {
         console.error("Error al cargar datos del dashboard:", error);
-        setNextCycleDays('No hay registro');
-        setLastMomentDays('No hay registro');
+        if (!cached) {
+          setNextCycleDays('No hay registro');
+          setLastMomentDays('No hay registro');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -289,7 +320,7 @@ function Home({ user, setActiveView }) {
     if (user && user.id && user.couple_id) {
       loadDashboardData();
     }
-  }, [user]);
+  }, [user, dashboardCacheKey]);
 
   const renderCycleInfo = () => {
     if (isLoading) return "Cargando...";

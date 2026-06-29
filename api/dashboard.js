@@ -44,44 +44,45 @@ export default async function handler(req, res) {
   }
 
   try {
-    const [cycles, settings, moments] = await Promise.all([
-      sql.unsafe(`
+    const rows = await sql.unsafe(`
+      WITH latest_cycle AS (
         SELECT mc.start_date
         FROM menstrual_cycles mc
         INNER JOIN users u ON u.id = mc.user_id
         WHERE u.couple_id = $1
         ORDER BY mc.start_date DESC
         LIMIT 1
-      `, [coupleId]),
-      sql.unsafe(`
-        SELECT cycle_duration
+      ), cycle_config AS (
+        SELECT COALESCE(cycle_duration, 28) AS cycle_duration
         FROM cycle_settings
         LIMIT 1
-      `),
-      sql.unsafe(`
+      ), latest_moment AS (
         SELECT moment_date
         FROM intimate_moments
         WHERE couple_id = $1
         ORDER BY moment_date DESC
         LIMIT 1
-      `, [coupleId])
-    ]);
+      )
+      SELECT
+        (SELECT start_date FROM latest_cycle) AS cycle_start_date,
+        COALESCE((SELECT cycle_duration FROM cycle_config), 28) AS cycle_duration,
+        (SELECT moment_date FROM latest_moment) AS moment_date
+    `, [coupleId]);
 
+    const dashboard = rows[0] || {};
     const today = new Date();
     let nextCycleDays = null;
     let lastMomentDays = null;
 
-    if (cycles.length > 0) {
-      const cycleLength = Number(settings[0]?.cycle_duration || 28);
-      const startDate = new Date(cycles[0].start_date);
+    if (dashboard.cycle_start_date) {
+      const startDate = new Date(dashboard.cycle_start_date);
       const nextCycleDate = new Date(startDate);
-      nextCycleDate.setDate(startDate.getDate() + cycleLength);
+      nextCycleDate.setDate(startDate.getDate() + Number(dashboard.cycle_duration || 28));
       nextCycleDays = daysBetween(nextCycleDate, today, 'ceil');
     }
 
-    if (moments.length > 0) {
-      const momentDate = new Date(moments[0].moment_date);
-      lastMomentDays = daysBetween(today, momentDate, 'floor');
+    if (dashboard.moment_date) {
+      lastMomentDays = daysBetween(today, new Date(dashboard.moment_date), 'floor');
     }
 
     return res.status(200).json({
